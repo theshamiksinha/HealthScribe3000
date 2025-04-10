@@ -38,10 +38,7 @@ class SpanExtractorWithCRF(nn.Module):
         emissions = self.tag_projection(embeddings)  # (B, L, num_tags)
 
         if labels is not None:
-            # Compute loss
-            print("Emissions:", emissions.shape)
-            print("Labels:", labels.shape)
-            print("Mask:", attention_mask.shape)
+            # Compute loss 
 
             loss = -self.crf(emissions, labels, mask=attention_mask.bool(), reduction='mean')
             return loss
