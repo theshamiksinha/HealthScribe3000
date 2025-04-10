@@ -1,9 +1,9 @@
 # config/config.yaml
 
 data:
-  train_path: "puma_dataset/train.json"
-  val_path: "puma_dataset/valid.json"
-  test_path: "puma_dataset/test.json"
+  train_path: "data/train.json"
+  val_path: "data/val.json"
+  test_path: "data/test.json"
   tokenizer_name: "bert-base-uncased"
   max_seq_length: 512
 
