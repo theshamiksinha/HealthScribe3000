@@ -19,7 +19,7 @@ def compute_token_f1(preds, labels, label_map):
     # preds = [[label_map[i] for i in seq] for seq in preds]
     labels = [[label_map[i] for i in seq] for seq in labels]
     preds = [[label_map[i] for i in seq if i != 0] for seq in preds]
-    # labels = [[label_map[i] for i in seq if i != 0] for seq in labels]
+    labels = [[label_map[i] for i in seq if i != 0] for seq in labels]
 
     print(len(preds))
     print(len(labels))
