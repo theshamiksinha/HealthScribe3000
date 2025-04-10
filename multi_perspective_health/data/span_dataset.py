@@ -25,7 +25,8 @@ class SpanDataset(Dataset):
                     padding='max_length',
                     max_length=self.max_len,
                     return_offsets_mapping=True,
-                    return_tensors='pt'
+                    return_tensors='pt',
+                    return_token_type_ids=True
                 )
                 offset_mapping = inputs['offset_mapping'][0].tolist()
                 input_ids = inputs['input_ids'][0]
@@ -49,9 +50,12 @@ class SpanDataset(Dataset):
 
                 label_ids = [self.label2id.get(tag, 0) for tag in label_sequence]
 
+                token_type_ids = inputs['token_type_ids'][0]
+
                 examples.append({
                     'input_ids': input_ids,
                     'attention_mask': attention_mask,
+                    'token_type_ids': token_type_ids,
                     'labels': torch.tensor(label_ids)
                 })
 
@@ -61,4 +65,11 @@ class SpanDataset(Dataset):
         return len(self.examples)
 
     def __getitem__(self, idx):
-        return self.examples[idx]
+        example = self.examples[idx]
+        return {
+            'input_ids': example['input_ids'],
+            'attention_mask': example['attention_mask'],
+            'token_type_ids': example['token_type_ids'],
+            'labels': example['labels']
+        }
+
