@@ -8,7 +8,7 @@ from torchcrf import CRF
 from models.base_encoder import BaseEncoder
 
 class SpanExtractorWithCRF(nn.Module):
-    def __init__(self, model_name: str = "dmis-lab/biobert-base-cased-v1.1", hidden_dim=0, num_tags: int = 3):
+    def __init__(self, model_name: str = "dmis-lab/biobert-base-cased-v1.1", num_tags: int = 3):
         """
         Args:
             model_name (str): Pretrained transformer model name.
@@ -39,6 +39,10 @@ class SpanExtractorWithCRF(nn.Module):
 
         if labels is not None:
             # Compute loss
+            print("Emissions:", emissions.shape)
+            print("Labels:", labels.shape)
+            print("Mask:", attention_mask.shape)
+
             loss = -self.crf(emissions, labels, mask=attention_mask.bool(), reduction='mean')
             return loss
         else:
