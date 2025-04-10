@@ -39,16 +39,18 @@ def train():
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
-    model = SpanExtractorWithCRF(model_name, num_tags).cuda()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = SpanExtractorWithCRF(model_name, num_tags).to(device)
+
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
     for epoch in range(epochs):
         model.train()
         total_loss = 0
         for batch in train_loader:
-            input_ids = batch['input_ids'].cuda()
-            attention_mask = batch['attention_mask'].cuda()
-            labels = batch['labels'].cuda()
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            labels = batch['labels'].to(device)
 
             loss = model(input_ids, attention_mask, labels)
             loss.backward()
