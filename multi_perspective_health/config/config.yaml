@@ -39,6 +39,19 @@ label_map:
   B-QUESTION: 9
   I-QUESTION: 10
 
+label_map_reverse:
+  0: "O"
+  1: "B-INFORMATION"
+  2: "I-INFORMATION"
+  3: "B-SUGGESTION"
+  4: "I-SUGGESTION"
+  5: "B-CAUSE"
+  6: "I-CAUSE"
+  7: "B-EXPERIENCE"
+  8: "I-EXPERIENCE"
+  9: "B-QUESTION"
+  10: "I-QUESTION"
+
 misc:
   seed: 42
   device: "cuda"

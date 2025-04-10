@@ -76,7 +76,7 @@ def train():
                 all_preds.extend(preds)
                 all_labels.extend(labels)
 
-        f1 = compute_token_f1(all_preds, all_labels, config['label_map'])
+        f1 = compute_token_f1(all_preds, all_labels, config['label_map_reverse'])
         print(f"Validation F1: {f1:.4f}")
 
 if __name__ == "__main__":
