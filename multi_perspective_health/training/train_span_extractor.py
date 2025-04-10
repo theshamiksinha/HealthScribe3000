@@ -14,6 +14,7 @@ from data.span_dataset import SpanDataset
 import yaml
 from utils.metrics import compute_token_f1
 import json
+from tqdm import tqdm  # <-- added
 
 def load_config(path='config/config.yaml'):
     with open(path, 'r') as f:
@@ -47,7 +48,7 @@ def train():
     for epoch in range(epochs):
         model.train()
         total_loss = 0
-        for batch in train_loader:
+        for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} - Training"):
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
@@ -66,7 +67,7 @@ def train():
         model.eval()
         all_preds, all_labels = [], []
         with torch.no_grad():
-            for batch in val_loader:
+            for batch in tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} - Validation"):
                 input_ids = batch['input_ids'].cuda()
                 attention_mask = batch['attention_mask'].cuda()
                 labels = batch['labels'].cpu().numpy().tolist()
