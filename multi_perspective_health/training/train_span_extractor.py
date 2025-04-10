@@ -14,7 +14,7 @@ from data.span_dataset import SpanDataset
 import yaml
 from utils.metrics import compute_token_f1
 import json
-from tqdm import tqdm  # <-- added
+from tqdm import tqdm  
 
 def load_config(path='config/config.yaml'):
     with open(path, 'r') as f:

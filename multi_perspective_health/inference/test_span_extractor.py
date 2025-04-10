@@ -1,31 +1,32 @@
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
-from ..models.span_extractor import SpanExtractorWithCRF
-from data.span_dataset import SpanExtractionDataset
+from models.span_extractor import SpanExtractorWithCRF
+from data.span_dataset import SpanDataset
 from utils.metrics import compute_span_metrics
-from config.config import get_config
+import yaml
 import json
 
 def test_span_extractor():
-    config = get_config()
+    
+    def load_config(path='config/config.yaml'):
+        with open(path, 'r') as f:
+            return yaml.safe_load(f)
+    config = load_config()
     device = torch.device(config["misc"]["device"] if torch.cuda.is_available() else "cpu")
 
     tokenizer = AutoTokenizer.from_pretrained(config["data"]["tokenizer_name"])
-
-    test_dataset = SpanExtractionDataset(
-        data_path=config["data"]["test_path"],
-        tokenizer=tokenizer,
-        max_length=config["data"]["max_seq_length"]
-    )
+    with open(config['data']['test_path'], 'r') as f:
+        test_data = json.load(f) 
+    test_dataset =SpanDataset(test_data, tokenizer, config['label_map'])
     test_loader = DataLoader(test_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
 
     model = SpanExtractorWithCRF(
         model_name=config["model"]["encoder_model"],
         hidden_dim=config["model"]["hidden_dim"],
-        dropout=config["model"]["dropout"],
-        use_crf=config["model"]["use_crf"],
-        num_labels=test_dataset.num_labels
+        # dropout=config["model"]["dropout"],
+        # use_crf=config["model"]["use_crf"],
+        num_tags=test_dataset.num_labels
     ).to(device)
 
     model.load_state_dict(torch.load(config["training"]["save_path"], map_location=device))

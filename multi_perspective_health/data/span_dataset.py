@@ -9,6 +9,7 @@ class SpanDataset(Dataset):
         self.tokenizer = tokenizer
         self.label2id = label_map
         self.id2label = {v: k for k, v in self.label2id.items()}
+        self.num_labels = len(self.label2id)
         self.max_len = max_len
         self.perspective_list = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
         self.examples = self.preprocess()
