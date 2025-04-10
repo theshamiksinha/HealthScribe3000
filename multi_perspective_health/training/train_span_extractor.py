@@ -25,7 +25,7 @@ def train():
     num_tags = config['model']['num_tags']
     batch_size = config['training']['batch_size']
     epochs = config['training']['num_epochs']
-    lr = config['training']['learning_rate']
+    lr = float(config['training']['learning_rate'])
 
     with open(config['data']['train_path'], 'r') as f:
         train_data = json.load(f) 
