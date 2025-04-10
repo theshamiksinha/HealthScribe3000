@@ -27,30 +27,31 @@ training:
   save_path: "/kaggle/working/checkpoints/span_extractor_crf.pt"
 
 label_map:
-  O: 0
-  B-INFORMATION: 1
-  I-INFORMATION: 2
-  B-SUGGESTION: 3
-  I-SUGGESTION: 4
-  B-CAUSE: 5
-  I-CAUSE: 6
-  B-EXPERIENCE: 7
-  I-EXPERIENCE: 8
-  B-QUESTION: 9
-  I-QUESTION: 10
+  O: 1
+  B-INFORMATION: 2
+  I-INFORMATION: 3
+  B-SUGGESTION: 4
+  I-SUGGESTION: 5
+  B-CAUSE: 6
+  I-CAUSE: 7
+  B-EXPERIENCE: 8
+  I-EXPERIENCE: 9
+  B-QUESTION: 10
+  I-QUESTION: 11
 
 label_map_reverse:
-  0: "O"
-  1: "B-INFORMATION"
-  2: "I-INFORMATION"
-  3: "B-SUGGESTION"
-  4: "I-SUGGESTION"
-  5: "B-CAUSE"
-  6: "I-CAUSE"
-  7: "B-EXPERIENCE"
-  8: "I-EXPERIENCE"
-  9: "B-QUESTION"
-  10: "I-QUESTION"
+  1: "O"
+  2: "B-INFORMATION"
+  3: "I-INFORMATION"
+  4: "B-SUGGESTION"
+  5: "I-SUGGESTION"
+  6: "B-CAUSE"
+  7: "I-CAUSE"
+  8: "B-EXPERIENCE"
+  9: "I-EXPERIENCE"
+  10: "B-QUESTION"
+  11: "I-QUESTION"
+
 
 misc:
   seed: 42
