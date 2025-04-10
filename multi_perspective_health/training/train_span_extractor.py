@@ -34,8 +34,8 @@ def train():
         val_data = json.load(f) 
     
     # split data for faster training
-    train_data = train_data[:int(len(train_data) * 0.00025)]
-    val_data = val_data[:int(len(val_data) * 0.00025)]
+    train_data = train_data[:int(len(train_data) * 0.0015)]
+    val_data = val_data[:int(len(val_data) * 0.0015)]
 
     tokenizer = AutoTokenizer.from_pretrained(config['data']['tokenizer_name'])
     train_dataset = SpanDataset(train_data, tokenizer, config['label_map'])
