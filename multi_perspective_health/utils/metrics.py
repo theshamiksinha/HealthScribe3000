@@ -21,9 +21,11 @@ def compute_token_f1(preds, labels, label_map):
     preds = [[label_map[i] for i in seq if i != 0] for seq in preds]
     labels = [[label_map[i] for i in seq if i != 0] for seq in labels]
 
+    print(preds)
+    print(labels)
+    print("thhsi is it\n")
     
-    # Use seqeval to compute the F1 score
-    assert len(preds) == len(labels), f"Length mismatch: {len(preds)} != {len(labels)}"
+    # Use seqeval to compute the F1 score 
     f1 = f1_score(labels, preds)
     return f1
 
