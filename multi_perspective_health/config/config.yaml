@@ -1,0 +1,44 @@
+# config/config.yaml
+
+data:
+  train_path: "puma_dataset/train.json"
+  val_path: "puma_dataset/valid.json"
+  test_path: "puma_dataset/test.json"
+  tokenizer_name: "bert-base-uncased"
+  max_seq_length: 512
+
+model:
+  encoder_model: "bert-base-uncased" 
+  dropout: 0.1
+  hidden_dim: 768
+  use_crf: true
+  num_tags: 13
+
+training:
+  batch_size: 8
+  num_epochs: 1
+  learning_rate: 3e-5
+  weight_decay: 0.01
+  warmup_steps: 100
+  max_grad_norm: 1.0
+  logging_steps: 50
+  eval_steps: 200
+  save_model: true
+  save_path: "checkpoints/span_extractor_crf.pt"
+
+label_map:
+  O: 0
+  B-INFORMATION: 1
+  I-INFORMATION: 2
+  B-SUGGESTION: 3
+  I-SUGGESTION: 4
+  B-CAUSE: 5
+  I-CAUSE: 6
+  B-EXPERIENCE: 7
+  I-EXPERIENCE: 8
+  B-QUESTION: 9
+  I-QUESTION: 10
+
+misc:
+  seed: 42
+  device: "cuda"
