@@ -33,8 +33,9 @@ def train():
     with open(config['data']['val_path'], 'r') as f:
         val_data = json.load(f) 
     
-    train_data = train_data[:int(len(train_data) * 0.1)]
-    val_data = val_data[:int(len(val_data) * 0.2)]
+    # split data for faster training
+    train_data = train_data[:int(len(train_data) * 0.025)]
+    val_data = val_data[:int(len(val_data) * 0.025)]
 
     tokenizer = AutoTokenizer.from_pretrained(config['data']['tokenizer_name'])
     train_dataset = SpanDataset(train_data, tokenizer, config['label_map'])
@@ -71,7 +72,6 @@ def train():
         all_preds, all_labels = [], []
         with torch.no_grad():
             for batch in tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} - Validation"):
-                assert len(all_preds) == len(all_labels), f"Length mismatch: {len(all_preds)} != {len(all_labels)}"
                 input_ids = batch['input_ids'].cuda()
                 attention_mask = batch['attention_mask'].cuda()
                 labels = batch['labels'].cpu().numpy().tolist()
