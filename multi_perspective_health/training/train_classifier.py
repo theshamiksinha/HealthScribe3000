@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import os
 import torch
 import torch.nn as nn
@@ -7,7 +11,7 @@ from models.perspective_classifier import PerspectiveClassifier
 from data.dataset import PerspectiveClassificationDataset
 from utils.metrics import compute_multilabel_metrics
 from config.config import get_config
-
+import json
 
 
 def train_classifier():
@@ -19,9 +23,15 @@ def train_classifier():
 
     # Load data
     # Assuming you have functions to load your JSON data
-    train_data = load_json_data(config["data"]["train_path"])
-    val_data = load_json_data(config["data"]["val_path"])
+    with open(config['data']['train_path'], 'r') as f:
+        train_data = json.load(f) 
+    with open(config['data']['val_path'], 'r') as f:
+        val_data = json.load(f) 
 
+    # split for faster training
+    train_data = train_data[:int(len(train_data) * 0.0015)]
+    val_data = val_data[:int(len(val_data) * 0.0015)]
+    
     train_dataset = PerspectiveClassificationDataset(
         data=train_data,
         tokenizer_name=config["model"]["pretrained_model"],
