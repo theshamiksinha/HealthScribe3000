@@ -8,7 +8,7 @@ from models.base_encoder import BaseEncoder
 from transformers import AutoModel
 
 class PerspectiveClassifier(nn.Module):
-    def __init__(self, model_name: str = "dmis-lab/biobert-base-cased-v1.1", num_labels: int = 5):
+    def __init__(self, model_name: str = "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract", num_labels: int = 5):
         """
         Args:
             model_name (str): Name of the pretrained encoder (BioBERT, PubMedBERT, etc.)
@@ -17,7 +17,12 @@ class PerspectiveClassifier(nn.Module):
         super(PerspectiveClassifier, self).__init__()
         self.encoder = BaseEncoder(model_name=model_name)
         self.hidden_size = self.encoder.hidden_size
-        self.classifier = nn.Linear(self.hidden_size, num_labels)
+        self.classifier = nn.Sequential(
+                            nn.Linear(self.hidden_size, 256),
+                            nn.ReLU(),
+                            nn.Dropout(0.3),
+                            nn.Linear(256, num_labels)
+                        )
         self.loss_fn = nn.BCEWithLogitsLoss()
 
     def forward(self, input_ids, attention_mask=None, token_type_ids=None, labels=None):

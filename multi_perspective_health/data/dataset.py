@@ -9,7 +9,7 @@ class PerspectiveClassificationDataset(Dataset):
         self.perspectives = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
         self.perspective_to_idx = {p: i for i, p in enumerate(self.perspectives)}
         
-        # Flatten dataset: create one item per (question, answer) pair
+        # Flatten dataset: create one item per (answer) item
         self.examples = []
         for item in data:
             question = item["question"]
@@ -33,9 +33,6 @@ class PerspectiveClassificationDataset(Dataset):
                     "answer": answer,
                     "perspectives": list(present_perspectives)
                 })
-        print("this is it\n\n\n\n")
-        print(len(self.examples))
-        print("this is it\n\n\n\n")
 
     def __len__(self):
         return len(self.examples)
@@ -44,7 +41,7 @@ class PerspectiveClassificationDataset(Dataset):
         example = self.examples[idx]
         text = example["answer"]
         # text = example["question"] + " " + example["answer"]
-
+        
         encoded = self.tokenizer(
             text,
             truncation=True,
