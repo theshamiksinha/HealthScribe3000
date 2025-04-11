@@ -11,6 +11,7 @@ from data.dataset import PerspectiveClassificationDataset
 from utils.metrics import compute_multilabel_metrics
 import yaml
 import json
+from tqdm import tqdm  # ✅ tqdm added
 
 def load_config(path='config/config.yaml'):
     with open(path, 'r') as f:
@@ -62,7 +63,7 @@ def train_classifier():
         model.train()
         total_loss = 0
 
-        for batch in train_loader:
+        for batch in tqdm(train_loader, desc=f"Epoch {epoch + 1}"):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             token_type_ids = batch.get("token_type_ids", torch.zeros_like(input_ids)).to(device)
@@ -91,7 +92,7 @@ def evaluate(model, val_loader, device, perspectives):
     threshold = 0.5  # Threshold for binary classification
 
     with torch.no_grad():
-        for batch in val_loader:
+        for batch in tqdm(val_loader, desc="Evaluating"):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             token_type_ids = batch.get("token_type_ids", torch.zeros_like(input_ids)).to(device)
