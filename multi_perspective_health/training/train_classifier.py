@@ -30,6 +30,8 @@ def train_classifier():
         train_data = json.load(f) 
     with open(config['data']['val_path'], 'r') as f:
         val_data = json.load(f) 
+        
+    tokenizer
 
     # split for faster training
     train_data = train_data[:int(len(train_data) * 0.0015)]
