@@ -10,12 +10,15 @@ from transformers import AutoTokenizer
 from models.perspective_classifier import PerspectiveClassifier
 from data.dataset import PerspectiveClassificationDataset
 from utils.metrics import compute_multilabel_metrics
-from config.config import get_config
+import yaml
 import json
 
+def load_config(path='config/config.yaml'):
+    with open(path, 'r') as f:
+        return yaml.safe_load(f)
 
 def train_classifier():
-    config = get_config()
+    config = load_config()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
