@@ -1,37 +1,66 @@
-# Dataset class and dataloaders
-# General Dataset (for perspective classification)
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
+import torch
 
 class PerspectiveClassificationDataset(Dataset):
     def __init__(self, data, tokenizer_name="bert-base-uncased", max_length=512):
-        self.data = data
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
         self.max_length = max_length
+        self.perspectives = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
+        self.perspective_to_idx = {p: i for i, p in enumerate(self.perspectives)}
+        
+        # Flatten dataset: create one item per (question, answer) pair
+        self.examples = []
+        for item in data:
+            question = item["question"]
+            answers = item["answers"]
+            labelled_spans = item.get("labelled_answer_spans", {})
+            
+            # For each answer, check which perspectives it contains
+            for answer in answers:
+                answer_start = item["raw_text"].find(answer)
+                answer_end = answer_start + len(answer)
+                
+                present_perspectives = set()
+                for p, spans in labelled_spans.items():
+                    for span in spans:
+                        span_start, span_end = span["label_spans"]
+                        if answer_start <= span_start < answer_end or answer_start < span_end <= answer_end:
+                            present_perspectives.add(p)
+                
+                self.examples.append({
+                    "question": question,
+                    "answer": answer,
+                    "perspectives": list(present_perspectives)
+                })
 
     def __len__(self):
-        return len(self.data)
+        return len(self.examples)
 
     def __getitem__(self, idx):
-        item = self.data[idx]
-        question = item["question"]
-        answers = item["answers"]  # list of answers
-        perspective_labels = item["labelled_answer_spans"]
+        example = self.examples[idx]
+        text = example["question"] + " " + example["answer"]
 
-        inputs, labels = [], []
-        for perspective, spans in perspective_labels.items():
-            for span in spans:
-                text = question + " " + span["txt"]
-                encoded = self.tokenizer(
-                    text,
-                    truncation=True,
-                    padding="max_length",
-                    max_length=self.max_length,
-                    return_tensors="pt"
-                )
-                inputs.append(encoded)
-                labels.append(perspective)
+        encoded = self.tokenizer(
+            text,
+            truncation=True,
+            padding="max_length",
+            max_length=self.max_length,
+            return_tensors="pt"
+        )
 
-        return inputs, labels
+        input_ids = encoded["input_ids"].squeeze(0)
+        attention_mask = encoded["attention_mask"].squeeze(0)
+        token_type_ids = encoded.get("token_type_ids", torch.zeros_like(input_ids)).squeeze(0)
 
- 
+        label = torch.zeros(len(self.perspectives))
+        for perspective in example["perspectives"]:
+            if perspective in self.perspective_to_idx:
+                label[self.perspective_to_idx[perspective]] = 1.0
+
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "token_type_ids": token_type_ids,
+            "labels": label
+        }

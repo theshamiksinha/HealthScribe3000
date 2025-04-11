@@ -2,6 +2,7 @@
 
 from seqeval.metrics import precision_score, recall_score, f1_score, classification_report
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 def compute_token_f1(preds, labels, label_map):
     """
@@ -25,6 +26,40 @@ def compute_token_f1(preds, labels, label_map):
     f1 = f1_score(labels, preds)
     return f1
 
+def compute_multilabel_metrics(predictions, labels, class_names):
+    """
+    Compute metrics for multi-label classification.
+    
+    Args:
+        predictions: Binary predictions (B, C)
+        labels: Ground truth labels (B, C)
+        class_names: List of class names
+        
+    Returns:
+        Dictionary of metrics
+    """
+    # Convert tensors to numpy arrays
+    preds_np = predictions.numpy()
+    labels_np = labels.numpy()
+    
+    # Calculate micro and macro metrics
+    micro_f1 = f1_score(labels_np, preds_np, average='micro')
+    macro_f1 = f1_score(labels_np, preds_np, average='macro')
+    micro_precision = precision_score(labels_np, preds_np, average='micro', zero_division=0)
+    micro_recall = recall_score(labels_np, preds_np, average='micro', zero_division=0)
+    
+    # Calculate per-class metrics
+    per_class_f1 = f1_score(labels_np, preds_np, average=None, zero_division=0)
+    
+    return {
+        'micro_f1': micro_f1,
+        'macro_f1': macro_f1,
+        'micro_precision': micro_precision,
+        'micro_recall': micro_recall,
+        'per_class_f1': per_class_f1
+    }
+    
+    
 def compute_span_metrics(pred_spans, true_spans):
     """
     Compute precision, recall, and F1 score for span extraction task.

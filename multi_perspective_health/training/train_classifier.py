@@ -5,24 +5,31 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 from models.perspective_classifier import PerspectiveClassifier
 from data.dataset import PerspectiveClassificationDataset
-from utils.metrics import compute_classification_metrics
+from utils.metrics import compute_multilabel_metrics
 from config.config import get_config
+
+
 
 def train_classifier():
     config = get_config()
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
     tokenizer = AutoTokenizer.from_pretrained(config["model"]["pretrained_model"])
 
+    # Load data
+    # Assuming you have functions to load your JSON data
+    train_data = load_json_data(config["data"]["train_path"])
+    val_data = load_json_data(config["data"]["val_path"])
+
     train_dataset = PerspectiveClassificationDataset(
-        data_path=config["data"]["train_path"],
-        tokenizer=tokenizer,
+        data=train_data,
+        tokenizer_name=config["model"]["pretrained_model"],
         max_length=config["data"]["max_length"]
     )
     val_dataset = PerspectiveClassificationDataset(
-        data_path=config["data"]["val_path"],
-        tokenizer=tokenizer,
+        data=val_data,
+        tokenizer_name=config["model"]["pretrained_model"],
         max_length=config["data"]["max_length"]
     )
 
@@ -31,7 +38,7 @@ def train_classifier():
 
     model = PerspectiveClassifier(
         model_name=config["model"]["pretrained_model"],
-        num_labels=config["model"]["num_labels"]
+        num_labels=len(train_dataset.perspectives)  # Dynamic number of labels
     ).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=config["training"]["lr"])
@@ -46,11 +53,11 @@ def train_classifier():
         for batch in train_loader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
-            token_type_ids = batch["token_type_ids"].to(device)
-            labels = batch["label"].to(device)
+            token_type_ids = batch.get("token_type_ids", torch.zeros_like(input_ids)).to(device)
+            labels = batch["labels"].to(device)
 
             optimizer.zero_grad()
-            loss = model(input_ids, attention_mask, token_type_ids, labels)
+            loss, _ = model(input_ids, attention_mask, token_type_ids, labels)
             loss.backward()
             optimizer.step()
 
@@ -60,32 +67,44 @@ def train_classifier():
 
         print(f"Epoch {epoch + 1}/{config['training']['epochs']} - Loss: {total_loss / len(train_loader):.4f}")
 
-        val_f1 = evaluate(model, val_loader, device)
+        val_f1 = evaluate(model, val_loader, device, train_dataset.perspectives)
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             torch.save(model.state_dict(), config["training"]["save_path"])
             print(f"✅ Best model saved (F1 = {val_f1:.4f})")
 
-def evaluate(model, val_loader, device):
+def evaluate(model, val_loader, device, perspectives):
     model.eval()
     all_preds, all_labels = [], []
+    threshold = 0.5  # Threshold for binary decisions in multi-label classification
 
     with torch.no_grad():
         for batch in val_loader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
-            token_type_ids = batch["token_type_ids"].to(device)
-            labels = batch["label"].to(device)
+            token_type_ids = batch.get("token_type_ids", torch.zeros_like(input_ids)).to(device)
+            labels = batch["labels"].to(device)
 
             logits = model(input_ids, attention_mask, token_type_ids)
-            preds = torch.argmax(logits, dim=1)
+            preds = (torch.sigmoid(logits) > threshold).float()  # Apply sigmoid and threshold
 
-            all_preds.extend(preds.cpu().tolist())
-            all_labels.extend(labels.cpu().tolist())
+            all_preds.append(preds.cpu())
+            all_labels.append(labels.cpu())
 
-    metrics = compute_classification_metrics(all_preds, all_labels)
-    print(f"📊 Validation Metrics: Acc: {metrics['accuracy']:.4f}, F1: {metrics['f1']:.4f}")
-    return metrics["f1"]
+    # Concatenate all batches
+    all_preds = torch.cat(all_preds, dim=0)
+    all_labels = torch.cat(all_labels, dim=0)
+
+    # Compute metrics for multi-label classification
+    metrics = compute_multilabel_metrics(all_preds, all_labels, perspectives)
+    
+    # Print detailed metrics
+    print(f"📊 Validation Metrics: Micro F1: {metrics['micro_f1']:.4f}, Macro F1: {metrics['macro_f1']:.4f}")
+    for i, perspective in enumerate(perspectives):
+        print(f"  - {perspective}: F1 = {metrics['per_class_f1'][i]:.4f}")
+    
+    return metrics["micro_f1"]  # Return micro F1 as the main metric
+
 
 if __name__ == "__main__":
     train_classifier()
