@@ -30,8 +30,8 @@ def train_classifier():
         val_data = json.load(f) 
 
     # For faster test runs (adjust/remove for real training)
-    train_data = train_data[:int(len(train_data) * 0.0015)]
-    val_data = val_data[:int(len(val_data) * 0.0015)]
+    train_data = train_data[:int(len(train_data) * 0.1)]
+    val_data = val_data[:int(len(val_data) * 0.1)]
 
     train_dataset = PerspectiveClassificationDataset(
         data=train_data,
