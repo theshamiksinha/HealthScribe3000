@@ -14,6 +14,7 @@ import json
 from tqdm import tqdm  # ✅ tqdm added
 from collections import Counter
 import torch
+from collections import Counter
     
 def load_config(path='config/config.yaml'):
     with open(path, 'r') as f:
@@ -46,7 +47,28 @@ def train_classifier():
         tokenizer_name=config["data"]["tokenizer_name"],
         max_length=config["data"]["max_seq_length"]
     )
-    # data analysis
+    
+    ######################################## data analysis #################################################
+    ######################################## data analysis #################################################
+    ######################################## data analysis #################################################
+    # 1. Count how often each perspective occurs
+    label_counter = Counter()
+    for ex in train_dataset.examples:  # or full dataset if needed
+        label_counter.update(ex["perspectives"])
+
+    # 2. Map label frequencies to perspective order
+    perspectives = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
+    total = len(train_dataset)
+    pos_counts = [label_counter.get(p, 0) for p in perspectives]
+    neg_counts = [total - c for c in pos_counts]
+
+    # 3. Compute pos_weight: more weight for rare classes
+    pos_weight = torch.tensor([neg / (pos + 1e-5) for pos, neg in zip(pos_counts, neg_counts)], dtype=torch.float)
+    
+    """######################################DATA ANALYSIS###############################################"""
+    ######################################## data analysis #################################################
+    ######################################## data analysis #################################################
+    ######################################## data analysis #################################################
     label_names = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
     label_counter = torch.zeros(len(label_names))
 
@@ -56,7 +78,10 @@ def train_classifier():
 
     print("Label Distribution:")
     for name, count in zip(label_names, label_counter):
-        print(f"{name}: {int(count)}")
+        print(f"{name}: {int(count)}")\
+    ######################################## data analysis #################################################
+    ######################################## data analysis #################################################
+    ######################################## data analysis #################################################
         
 
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True)
@@ -64,7 +89,8 @@ def train_classifier():
 
     model = PerspectiveClassifier(
         model_name=config["model"]["pretrained_model"],
-        num_labels=len(train_dataset.perspectives)
+        num_labels=len(train_dataset.perspectives),
+        pos_weight = pos_weight
     ).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(config["training"]["learning_rate"]))
