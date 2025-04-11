@@ -91,6 +91,10 @@ def evaluate(model, val_loader, device, perspectives):
     all_preds, all_labels = [], []
     threshold = 0.5  # Threshold for binary classification
 
+    tokenizer = val_loader.dataset.tokenizer  # grab tokenizer from dataset
+    sample_printed = 0
+    max_samples_to_print = 5
+
     with torch.no_grad():
         for batch in tqdm(val_loader, desc="Evaluating"):
             input_ids = batch["input_ids"].to(device)
@@ -104,16 +108,31 @@ def evaluate(model, val_loader, device, perspectives):
             all_preds.append(preds.cpu())
             all_labels.append(labels.cpu())
 
+            # Print a few samples
+            if sample_printed < max_samples_to_print:
+                decoded = tokenizer.batch_decode(input_ids, skip_special_tokens=True)
+                for i in range(len(decoded)):
+                    if sample_printed >= max_samples_to_print:
+                        break
+                    print("\n📝 Sample", sample_printed + 1)
+                    print("Text:", decoded[i])
+                    true_labels = [perspectives[j] for j, v in enumerate(labels[i]) if v == 1]
+                    pred_labels = [perspectives[j] for j, v in enumerate(preds[i]) if v == 1]
+                    print("✅ True Labels:", true_labels)
+                    print("🔮 Predicted Labels:", pred_labels)
+                    sample_printed += 1
+
     all_preds = torch.cat(all_preds, dim=0)
     all_labels = torch.cat(all_labels, dim=0)
 
     metrics = compute_multilabel_metrics(all_preds, all_labels, perspectives)
 
-    print(f"📊 Validation Metrics: Micro F1: {metrics['micro_f1']:.4f}, Macro F1: {metrics['macro_f1']:.4f}")
+    print(f"\n📊 Validation Metrics: Micro F1: {metrics['micro_f1']:.4f}, Macro F1: {metrics['macro_f1']:.4f}")
     for i, perspective in enumerate(perspectives):
         print(f"  - {perspective}: F1 = {metrics['per_class_f1'][i]:.4f}")
     
     return metrics["micro_f1"]
+
 
 if __name__ == "__main__":
     train_classifier()
