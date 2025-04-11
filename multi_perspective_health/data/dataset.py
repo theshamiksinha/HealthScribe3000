@@ -34,7 +34,7 @@ class PerspectiveClassificationDataset(Dataset):
                     "perspectives": list(present_perspectives)
                 })
         print("this is it\n\n\n\n")
-        print(len(item))
+        print(len(self.examples))
         print("this is it\n\n\n\n")
 
     def __len__(self):
