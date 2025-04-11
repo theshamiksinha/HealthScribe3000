@@ -52,7 +52,8 @@ def train_classifier():
         num_labels=len(train_dataset.perspectives)
     ).to(device)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config["training"]["learning_rate"])
+    optimizer = torch.optim.AdamW(model.parameters(), lr=float(config["training"]["learning_rate"]))
+
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
 
     best_val_f1 = 0
