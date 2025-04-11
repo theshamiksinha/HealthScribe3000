@@ -29,7 +29,7 @@ class PerspectiveClassificationDataset(Dataset):
                             present_perspectives.add(p)
                 
                 self.examples.append({
-                    "question": question,
+                    # "question": question,
                     "answer": answer,
                     "perspectives": list(present_perspectives)
                 })
@@ -39,7 +39,8 @@ class PerspectiveClassificationDataset(Dataset):
 
     def __getitem__(self, idx):
         example = self.examples[idx]
-        text = example["question"] + " " + example["answer"]
+        text = example["answer"]
+        # text = example["question"] + " " + example["answer"]
 
         encoded = self.tokenizer(
             text,

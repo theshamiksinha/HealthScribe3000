@@ -12,7 +12,9 @@ from utils.metrics import compute_multilabel_metrics
 import yaml
 import json
 from tqdm import tqdm  # ✅ tqdm added
-
+from collections import Counter
+import torch
+    
 def load_config(path='config/config.yaml'):
     with open(path, 'r') as f:
         return yaml.safe_load(f)
@@ -44,6 +46,18 @@ def train_classifier():
         tokenizer_name=config["data"]["tokenizer_name"],
         max_length=config["data"]["max_seq_length"]
     )
+    # data analysis
+    label_names = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
+    label_counter = torch.zeros(len(label_names))
+
+    for example in train_dataset:
+        label_tensor = torch.tensor(example["labels"])  # assuming multi-hot
+        label_counter += label_tensor
+
+    print("Label Distribution:")
+    for name, count in zip(label_names, label_counter):
+        print(f"{name}: {int(count)}")
+        
 
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
