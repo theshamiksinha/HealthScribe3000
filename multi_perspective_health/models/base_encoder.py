@@ -6,6 +6,7 @@ class BaseEncoder(nn.Module):
     def __init__(self, model_name: str = "dmis-lab/biobert-base-cased-v1.1", output_cls: bool = False):
         super(BaseEncoder, self).__init__()
         self.output_cls = output_cls
+        self.model = AutoModel.from_pretrained(model_name)
         self.config = AutoConfig.from_pretrained(model_name)
         self.encoder = AutoModel.from_pretrained(model_name)
         self.hidden_size = self.config.hidden_size
