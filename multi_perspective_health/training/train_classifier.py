@@ -40,12 +40,12 @@ def train_classifier():
     train_dataset = PerspectiveClassificationDataset(
         data=train_data,
         tokenizer_name=config["model"]["pretrained_model"],
-        max_length=config["data"]["max_length"]
+        max_length=config["data"]["max_seq_length"]
     )
     val_dataset = PerspectiveClassificationDataset(
         data=val_data,
         tokenizer_name=config["model"]["pretrained_model"],
-        max_length=config["data"]["max_length"]
+        max_length=config["data"]["max_seq_length"]
     )
 
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True)
