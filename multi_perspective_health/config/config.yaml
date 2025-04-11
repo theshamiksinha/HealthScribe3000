@@ -8,8 +8,8 @@ data:
   max_seq_length: 512
 
 model:
-  encoder_model: "bert-base-uncased" 
-  pretrained_model: "bert-base-uncased" 
+  encoder_model: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract" 
+  pretrained_model: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract" 
   dropout: 0.1
   hidden_dim: 768
   use_crf: true
