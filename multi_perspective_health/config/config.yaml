@@ -25,7 +25,7 @@ training:
   logging_steps: 50
   eval_steps: 200
   save_model: false
-  save_path: "/kaggle/working/checkpoints/span_extractor_crf.pt"
+  save_path: "/kaggle/working/span_extractor_crf.pt"
 
 label_map:
   O: 1
