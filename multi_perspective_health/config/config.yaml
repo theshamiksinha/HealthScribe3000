@@ -1,5 +1,4 @@
 # config/config.yaml
-
 data:
   train_path: "data/train.json"
   val_path: "data/valid.json"

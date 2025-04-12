@@ -1,48 +1,74 @@
-# Input: (question, answer, perspective)
-# Output: The exact text spans (token indices or BIO labels) in the answer that express that perspective
-# SpanExtractor needed to locate the relevant span(s) within the answer for that predicted perspective
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import torch
-import torch.nn as nn
-from torchcrf import CRF
-from models.base_encoder import BaseEncoder
+from torch.utils.data import DataLoader
+from transformers import AutoTokenizer
+from models.span_extractor import SpanExtractorWithCRF
+from data.span_dataset import SpanDataset
+from utils.metrics import compute_token_f1
+import yaml
+import json
+from tqdm import tqdm
 
-class SpanExtractorWithCRF(nn.Module):
-    def __init__(self, model_name: str = "dmis-lab/biobert-base-cased-v1.1", num_tags: int = 3):
-        """
-        Args:
-            model_name (str): Pretrained transformer model name.
-            num_tags (int): Number of BIO tags (e.g., B/I/O = 3).
-        """
-        super(SpanExtractorWithCRF, self).__init__()
-        self.encoder = BaseEncoder(model_name=model_name)
-        self.hidden_size = self.encoder.hidden_size
-        self.num_tags = num_tags
+def load_config(path='config/config.yaml'):
+    with open(path, 'r') as f:
+        return yaml.safe_load(f)
 
-        self.tag_projection = nn.Linear(self.hidden_size, self.num_tags)
-        self.crf = CRF(num_tags=self.num_tags, batch_first=True)
+def train():
+    config = load_config()
+    device = torch.device(config["misc"].get("device", "cuda" if torch.cuda.is_available() else "cpu"))
+    print(f"Using device: {device}")
 
-    def forward(self, input_ids, attention_mask=None, token_type_ids=None, labels=None):
-        """
-        Args:
-            input_ids: (batch_size, seq_len)
-            attention_mask: (batch_size, seq_len)
-            token_type_ids: (batch_size, seq_len)
-            labels: (batch_size, seq_len) - gold BIO tag ids
+    with open(config['data']['train_path'], 'r') as f:
+        train_data = json.load(f)
+    with open(config['data']['val_path'], 'r') as f:
+        val_data = json.load(f)
 
-        Returns:
-            If labels is provided, returns the negative log-likelihood loss.
-            Else, returns the predicted tag sequence (list of list of tag ids).
-        """
-        embeddings = self.encoder(input_ids, attention_mask, token_type_ids)  # (B, L, H)
-        emissions = self.tag_projection(embeddings)  # (B, L, num_tags)
+    tokenizer = AutoTokenizer.from_pretrained(config['data']['tokenizer_name'])
+    train_dataset = SpanDataset(train_data, tokenizer, config['label_map'], max_len=config['data']['max_seq_length'])
+    val_dataset = SpanDataset(val_data, tokenizer, config['label_map'], max_len=config['data']['max_seq_length'])
 
-        if labels is not None:
-            # Compute loss 
+    train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'], shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'])
 
-            loss = -self.crf(emissions, labels, mask=attention_mask.bool(), reduction='mean')
-            return loss
-        else:
-            # Decode tag sequences
-            predictions = self.crf.decode(emissions, mask=attention_mask.bool())
-            return predictions
+    model = SpanExtractorWithCRF(config['model']['encoder_model'], config['model']['num_tags']).to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=float(config['training']['learning_rate']))
+
+    for epoch in range(config['training']['num_epochs']):
+        model.train()
+        total_loss = 0
+
+        for batch in tqdm(train_loader, desc=f"Epoch {epoch+1} Training"):
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            token_type_ids = batch['token_type_ids'].to(device)
+            labels = batch['labels'].to(device)
+
+            loss = model(input_ids, attention_mask, token_type_ids, labels)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            total_loss += loss.item()
+
+        print(f"📘 Epoch {epoch+1} - Train Loss: {total_loss / len(train_loader):.4f}")
+
+        # Evaluation
+        model.eval()
+        all_preds, all_labels = [], []
+        with torch.no_grad():
+            for batch in tqdm(val_loader, desc=f"Epoch {epoch+1} Validation"):
+                input_ids = batch['input_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
+                labels = batch['labels'].cpu().tolist()
+
+                preds = model(input_ids, attention_mask)
+                all_preds.extend(preds)
+                all_labels.extend(labels)
+
+        f1 = compute_token_f1(all_preds, all_labels, config['label_map_reverse'])
+        print(f"✅ Validation Token-level F1: {f1:.4f}")
+
+if __name__ == "__main__":
+    train()

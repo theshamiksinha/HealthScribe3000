@@ -1,4 +1,3 @@
-# Span Dataset for Token-Level BIO Labelling (Multi-Perspective)
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
@@ -9,7 +8,6 @@ class SpanDataset(Dataset):
         self.tokenizer = tokenizer
         self.label2id = label_map
         self.id2label = {v: k for k, v in self.label2id.items()}
-        self.num_labels = len(self.label2id)
         self.max_len = max_len
         self.perspective_list = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
         self.examples = self.preprocess()
@@ -32,10 +30,11 @@ class SpanDataset(Dataset):
                 offset_mapping = inputs['offset_mapping'][0].tolist()
                 input_ids = inputs['input_ids'][0]
                 attention_mask = inputs['attention_mask'][0]
+                token_type_ids = inputs['token_type_ids'][0]
 
                 label_sequence = ['O'] * self.max_len
                 for perspective in self.perspective_list:
-                    spans = instance.get("labelled_answer_spans", {}).get(perspective, [])
+                    spans = answer.get("labelled_answer_spans", {}).get(perspective, [])
                     for span in spans:
                         start, end = span['label_spans']
                         for i, (start_char, end_char) in enumerate(offset_mapping):
@@ -44,14 +43,12 @@ class SpanDataset(Dataset):
                             if start_char >= start and end_char <= end:
                                 if label_sequence[i] == 'O':
                                     label_sequence[i] = f'B-{perspective}'
-                                elif label_sequence[i].startswith('B') or label_sequence[i].startswith('I'):
+                                elif label_sequence[i].startswith('B-') or label_sequence[i].startswith('I-'):
                                     continue
                                 else:
                                     label_sequence[i] = f'I-{perspective}'
 
-                label_ids = [self.label2id.get(tag, 0) for tag in label_sequence]
-
-                token_type_ids = inputs['token_type_ids'][0]
+                label_ids = [self.label2id.get(tag, self.label2id['O']) for tag in label_sequence]
 
                 examples.append({
                     'input_ids': input_ids,
@@ -66,11 +63,4 @@ class SpanDataset(Dataset):
         return len(self.examples)
 
     def __getitem__(self, idx):
-        example = self.examples[idx]
-        return {
-            'input_ids': example['input_ids'],
-            'attention_mask': example['attention_mask'],
-            'token_type_ids': example['token_type_ids'],
-            'labels': example['labels']
-        }
-
+        return self.examples[idx]
