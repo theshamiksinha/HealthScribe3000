@@ -4,12 +4,12 @@ data:
   train_path: "data/train.json"
   val_path: "data/valid.json"
   test_path: "data/test.json"
-  tokenizer_name: "bert-large-uncased"
+  tokenizer_name: "bert-base-uncased"
   max_seq_length: 512
 
 model:
-  encoder_model: "bert-large-uncased" 
-  pretrained_model: "bert-large-uncased" 
+  encoder_model: "bert-base-uncased" 
+  pretrained_model: "bert-base-uncased" 
   dropout: 0.1
   hidden_dim: 768
   use_crf: true
