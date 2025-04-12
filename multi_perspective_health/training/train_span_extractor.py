@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
-from multi_perspective_health.models.span_extractor import SpanExtractorWithCRF
+from models.span_extractor import SpanExtractorWithCRF
 from data.span_dataset import SpanDataset
 import yaml
 from utils.metrics import compute_token_f1
