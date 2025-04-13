@@ -93,16 +93,16 @@ class LLMDataset(Dataset):
 
     def _create_input_prompt(self, question, perspective, perspective_info, relevant_spans):
         """Create the input prompt for the model."""
-        prompt = f"Question: {question}\n\n"
+        prompt = "Summarize the following answers according to the perspective of :\n"
         prompt += f"Perspective: {perspective}\n"
-        prompt += f"Definition: {perspective_info['definition']}\n"
-        prompt += f"TONE: {perspective_info['tone']}\n\n"
-        
-        prompt += "Summarize the following answers from the perspective of the question:\n"
-        
-        prompt += "Answers:\n"
+        prompt += f"Definition of perspective: {perspective_info['definition']}\n"
+        prompt += f"Tone of the summary: {perspective_info['tone']}\n\n"
+        prompt += f"Begin summary with: {perspective_info['start_phrase']}\n\n"
+        prompt += "Answers to summarise:\n"
         for span in relevant_spans:
             prompt += f"- {span}\n"
+            
+        prompt += f"Associated question: {question}\n\n" 
         
         return prompt
         
