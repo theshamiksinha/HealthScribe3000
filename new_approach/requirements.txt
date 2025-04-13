@@ -12,3 +12,4 @@ rouge_score
 evaluate
 bert-score
 nltk
+tabulate

@@ -7,8 +7,10 @@ from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from nltk.translate.meteor_score import meteor_score
 from nltk.tokenize import word_tokenize
 from bert_score import score as bertscore
+from tabulate import tabulate
 import nltk
 nltk.download("punkt")
+
 
 def evaluate_pegasus_model(model, tokenizer, dataset, output_dir="eval_after_training"):
     model.eval()
@@ -27,25 +29,28 @@ def evaluate_pegasus_model(model, tokenizer, dataset, output_dir="eval_after_tra
             generated_ids = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=512)
 
         decoded_pred = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
-        decoded_label = tokenizer.decode(
-            label_ids[0][label_ids[0] != -100], skip_special_tokens=True
-        )
+        decoded_label = tokenizer.decode(label_ids[0][label_ids[0] != -100], skip_special_tokens=True)
 
         predictions.append(decoded_pred.strip())
         references.append(decoded_label.strip())
 
     # ROUGE
     scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
-    rouge1, rouge2, rougeL = [], [], []
+    rouge_scores = {"rouge1": [], "rouge2": [], "rougeL": []}
+
     for pred, ref in zip(predictions, references):
         scores = scorer.score(ref, pred)
-        rouge1.append(scores["rouge1"].fmeasure)
-        rouge2.append(scores["rouge2"].fmeasure)
-        rougeL.append(scores["rougeL"].fmeasure)
+        for key in rouge_scores:
+            rouge_scores[key].append((scores[key].recall, scores[key].fmeasure))
 
-    avg_rouge1 = sum(rouge1) / len(rouge1)
-    avg_rouge2 = sum(rouge2) / len(rouge2)
-    avg_rougeL = sum(rougeL) / len(rougeL)
+    # Compute average recall and f1 for each rouge type
+    table_data = []
+    for key in ["rouge1", "rouge2", "rougeL"]:
+        recalls = [r for r, f in rouge_scores[key]]
+        f1s = [f for r, f in rouge_scores[key]]
+        avg_recall = sum(recalls) / len(recalls)
+        avg_f1 = sum(f1s) / len(f1s)
+        table_data.append([key.upper(), f"{avg_recall:.4f}", f"{avg_f1:.4f}"])
 
     # BLEU
     smoothie = SmoothingFunction().method4
@@ -69,19 +74,15 @@ def evaluate_pegasus_model(model, tokenizer, dataset, output_dir="eval_after_tra
 
     # Print results
     print("\n==== Evaluation Results ====")
-    print(f"ROUGE-1:  {avg_rouge1:.4f}")
-    print(f"ROUGE-2:  {avg_rouge2:.4f}")
-    print(f"ROUGE-L:  {avg_rougeL:.4f}")
-    print(f"BLEU:     {avg_bleu:.4f}")
-    print(f"METEOR:   {avg_meteor:.4f}")
+    print(tabulate(table_data, headers=["ROUGE Type", "Recall", "F1"], tablefmt="fancy_grid"))
+    print(f"\nBLEU:       {avg_bleu:.4f}")
+    print(f"METEOR:     {avg_meteor:.4f}")
     print(f"BERTScore F1: {avg_bertscore_f1:.4f}")
 
-    # Optionally save to file
+    # Save results
     os.makedirs(output_dir, exist_ok=True)
     with open(os.path.join(output_dir, "metrics.txt"), "w") as f:
-        f.write(f"ROUGE-1:  {avg_rouge1:.4f}\n")
-        f.write(f"ROUGE-2:  {avg_rouge2:.4f}\n")
-        f.write(f"ROUGE-L:  {avg_rougeL:.4f}\n")
-        f.write(f"BLEU:     {avg_bleu:.4f}\n")
-        f.write(f"METEOR:   {avg_meteor:.4f}\n")
+        f.write(tabulate(table_data, headers=["ROUGE Type", "Recall", "F1"], tablefmt="grid"))
+        f.write(f"\n\nBLEU:       {avg_bleu:.4f}\n")
+        f.write(f"METEOR:     {avg_meteor:.4f}\n")
         f.write(f"BERTScore F1: {avg_bertscore_f1:.4f}\n")
