@@ -86,3 +86,4 @@ def evaluate_pegasus_model(model, tokenizer, dataset, output_dir="eval_after_tra
         f.write(f"\n\nBLEU:       {avg_bleu:.4f}\n")
         f.write(f"METEOR:     {avg_meteor:.4f}\n")
         f.write(f"BERTScore F1: {avg_bertscore_f1:.4f}\n")
+    

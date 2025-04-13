@@ -20,6 +20,7 @@ import numpy as np
 from data.llm_dataset import LLMDataset
 from utils.metrics import compute_rouge
 from inference.evaluate_summariser import evaluate_pegasus_model
+from inference.eval_perspective_wise import evaluate_perspective_wise
 
 def train_llm():
     # Load config
@@ -119,6 +120,7 @@ def train_llm():
     test_dataset = LLMDataset(test_data, tokenizer, config, mode="test")
 
     evaluate_pegasus_model(model, tokenizer, test_dataset, output_dir="eval_after_training")
+    evaluate_perspective_wise(model, tokenizer, test_dataset)
     
     print("\nGenerating predictions for first 10 validation samples...")
     model.eval()
