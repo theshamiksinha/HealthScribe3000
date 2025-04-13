@@ -47,7 +47,7 @@ class LLMDataset(Dataset):
                     continue  # Skip if no spans were found for this perspective
 
                 input_prompt = self._create_input_prompt(question, perspective, perspective_info, relevant_spans)
-                target_output = self._create_target_output(relevant_spans, perspective)
+                target_output = self._create_target_output(labelled_summaries, perspective)
 
                 # Tokenizing input and target
                 inputs = self.tokenizer(
@@ -110,6 +110,30 @@ class LLMDataset(Dataset):
         summary = " ".join(relevant_spans)  # For simplicity, we'll just join them.
         
         return f"{perspective}_SUMMARY: {summary}"
+    
+    def _create_target_output(self, labelled_summaries, persepective):
+        # """Create the target output for the model."""
+        # # Part 1: Extracted spans organized by perspective
+        # output = "EXTRACTED SPANS:\n"
+        # for p_name, spans in labelled_spans.items():
+        #     if spans:
+        #         output += f"{p_name}:\n"
+        #         for span in spans:
+        #             output += f"- {span['txt']}\n"
+        
+        # Part 2: Perspective summaries
+        # output += "\nPERSPECTIVE SUMMARIES:\n"
+        output = ""
+        for p_name in self.perspectives:
+            if persepective == p_name :
+                summary_key = f"{p_name}_SUMMARY"
+                if summary_key in labelled_summaries:
+                    p_info = self.perspectives.get(p_name, {})
+                    # start_phrase = p_info.get('start_phrase', f"{p_name}:")
+                    start_phrase = ""
+                    output += f"{summary_key}: {start_phrase} {labelled_summaries[summary_key]}\n"
+        
+        return output
 
     def __len__(self):
         return len(self.examples)
