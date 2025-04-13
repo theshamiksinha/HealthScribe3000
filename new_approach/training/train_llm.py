@@ -106,8 +106,9 @@ def train_llm():
     
     # Save the trained model
     print("saving the trained model\n")
-    trainer.save_model("./pegasus_outputs/final_model")
-
+    # Ensure the directory exists
+    os.makedirs(config["training"]["llm"]["save_dir"], exist_ok=True)
+    trainer.save_model(config["training"]["llm"]["save_dir"])
 
     # ########################################################################################################### #
    
