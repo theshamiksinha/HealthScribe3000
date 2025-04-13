@@ -42,8 +42,8 @@ def train_llm():
     # model.config.decoder_start_token_id = tokenizer.pad_token_id
     
 
-    tokenizer = PegasusTokenizer.from_pretrained("google/pegasus-large")  # or your variant
-    model = PegasusForConditionalGeneration.from_pretrained("google/pegasus-large")
+    tokenizer = PegasusTokenizer.from_pretrained("google/pegasus-xsum")  # or your variant
+    model = PegasusForConditionalGeneration.from_pretrained("google/pegasus-xsum")
 
 
     # Create datasets with tqdm during preprocessing
