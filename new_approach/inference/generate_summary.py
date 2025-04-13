@@ -1,108 +1,117 @@
-# inference/generate_summary.py
-import os
-import sys
-import json
-import yaml
 import torch
-from transformers import AutoTokenizer
+from torch.utils.data import DataLoader
+from transformers import PegasusForConditionalGeneration, PegasusTokenizer
+from datasets import load_metric
+import evaluate
+from bert_score import score as bert_score
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+from nltk.translate.meteor_score import meteor_score
 from tqdm import tqdm
+import argparse
+import json
+import os
+from data.data_utils import load_config
+from data.llm_dataset import LLMDataset  # Replace with your actual dataset path
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from models.llm_model import PerspectiveLLM
-from models.perspective_classifier import PerspectiveClassifier
-from data.data_utils import load_dataset, save_dataset
-
-def load_config(path='config/config.yaml'):
-    with open(path, 'r') as f:
-        return yaml.safe_load(f)
-
-def generate_summaries(input_file, output_file, model_path=None, classify_perspectives=True):
-    """
-    Generate perspective-based summaries for a dataset
+def generate_predictions(model, tokenizer, dataloader, device):
+    model.eval()
+    predictions = []
+    references = []
     
-    Args:
-        input_file: Path to input JSON file with questions and answers
-        output_file: Path to output JSON file for saving summaries
-        model_path: Path to fine-tuned LLM model
-        classify_perspectives: Whether to classify perspectives first
-    """
-    # Load config
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc="Generating summaries"):
+            input_ids = batch["input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+
+            generated_ids = model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                max_length=128,
+                num_beams=5,
+                early_stopping=True
+            )
+
+            decoded_preds = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+            decoded_labels = tokenizer.batch_decode(batch["labels"], skip_special_tokens=True)
+
+            predictions.extend(decoded_preds)
+            references.extend(decoded_labels)
+
+    return predictions, references
+
+
+def compute_metrics(predictions, references, lang="en"):
+    results = {}
+
+    # ROUGE
+    rouge = evaluate.load("rouge")
+    rouge_scores = rouge.compute(predictions=predictions, references=references)
+    results.update({f"rouge_{k}": v for k, v in rouge_scores.items()})
+
+    # BERTScore
+    P, R, F1 = bert_score(predictions, references, lang=lang)
+    results["bertscore_precision"] = P.mean().item()
+    results["bertscore_recall"] = R.mean().item()
+    results["bertscore_f1"] = F1.mean().item()
+
+    # BLEU
+    smoothie = SmoothingFunction().method4
+    bleu_scores = [sentence_bleu([ref.split()], pred.split(), smoothing_function=smoothie)
+                   for pred, ref in zip(predictions, references)]
+    results["bleu"] = sum(bleu_scores) / len(bleu_scores)
+
+    # METEOR
+    meteor_scores = [meteor_score([ref], pred) for pred, ref in zip(predictions, references)]
+    results["meteor"] = sum(meteor_scores) / len(meteor_scores)
+
+    return results
+
+
+def main(args):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Load config and tokenizer
     config = load_config()
-    
-    # Set default model path if not provided
-    if model_path is None:
-        model_path = os.path.join(config['training']['llm']['save_dir'], 'best_model')
-    
-    # Load data
-    print(f"Loading data from {input_file}...")
-    data = load_dataset(input_file)
-    
-    # Load models
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    llm = PerspectiveLLM(model_path, tokenizer=tokenizer)
-    
-    # Load perspective classifier if needed
-    if classify_perspectives:
-        print("Loading perspective classifier...")
-        classifier = PerspectiveClassifier.from_pretrained(
-            os.path.join(config['training']['classifier']['save_dir'], 'best_model.pt'),
-            config['model']['classifier']['encoder_model']
-        )
-    
-    # Process each question-answer pair
-    results = []
-    for instance in tqdm(data, desc="Generating summaries"):
-        question = instance["question"]
-        answers = [a["text"] for a in instance["answers"]]
-        
-        # First, classify perspectives if needed
-        if classify_perspectives:
-            # Get all unique perspectives across answers
-            all_perspectives = set()
-            for answer_text in answers:
-                perspectives = classifier.predict(question, answer_text)
-                all_perspectives.update(perspectives)
-        else:
-            # Use all defined perspectives
-            all_perspectives = set(config['perspectives'].keys())
-        
-        # Generate summaries
-        summaries = llm.generate(
-            question=question,
-            answers=answers,
-            perspectives=list(all_perspectives),
-            max_length=config['inference']['max_length']
-        )
-        
-        # Store results
-        result = {
-            "question": question,
-            "answers": instance["answers"],
-            "perspectives": list(all_perspectives),
-            "perspective_summaries": summaries
-        }
-        
-        results.append(result)
-    
-    # Save results
-    print(f"Saving results to {output_file}...")
-    save_dataset(results, output_file)
-    print(f"Generated summaries for {len(results)} questions.")
+    tokenizer = PegasusTokenizer.from_pretrained(args.model_path)
+    model = PegasusForConditionalGeneration.from_pretrained(args.model_path).to(device)
+
+    # Load dataset
+    test_data = torch.load(args.test_data_path)  # List of dicts
+    test_dataset = LLMDataset(test_data, tokenizer, config, mode="test")
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
+
+    # Generate predictions
+    predictions, references = generate_predictions(model, tokenizer, test_loader, device)
+
+    # Compute metrics
+    metrics = compute_metrics(predictions, references)
+
+    # Save outputs
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    with open(os.path.join(args.output_dir, "predictions.txt"), "w") as f:
+        for pred in predictions:
+            f.write(pred + "\n")
+
+    with open(os.path.join(args.output_dir, "references.txt"), "w") as f:
+        for ref in references:
+            f.write(ref + "\n")
+
+    with open(os.path.join(args.output_dir, "metrics.json"), "w") as f:
+        json.dump(metrics, f, indent=2)
+
+    print("\n🟢 Evaluation complete. Metrics:")
+    for k, v in metrics.items():
+        print(f"{k}: {v:.4f}")
+
 
 if __name__ == "__main__":
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Generate perspective-based summaries")
-    parser.add_argument("--input", required=True, help="Input JSON file path")
-    parser.add_argument("--output", required=True, help="Output JSON file path")
-    parser.add_argument("--model", default=None, help="Path to fine-tuned model")
-    parser.add_argument("--no-classify", action="store_true", help="Skip perspective classification")
-    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_path", type=str, required=True, help="Path to fine-tuned Pegasus model")
+    parser.add_argument("--test_data_path", type=str, required=True, help="Path to preprocessed test data (torch format)")
+    parser.add_argument("--config", type=str, required=True, help="Path to config.yaml or JSON")
+    parser.add_argument("--output_dir", type=str, default="eval_outputs", help="Directory to save predictions and metrics")
+    parser.add_argument("--batch_size", type=int, default=4, help="Batch size for evaluation")
     args = parser.parse_args()
-    
-    generate_summaries(
-        args.input,
-        args.output,
-        model_path=args.model,
-        classify_perspectives=not args.no_classify
-    )
+
+    main(args)
