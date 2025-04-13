@@ -1,7 +1,12 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import os
 import yaml
 import json
 import torch
+from tqdm import tqdm
 from transformers import (
     AutoModelForSeq2SeqLM,
     AutoTokenizer,
@@ -19,6 +24,7 @@ def train_llm():
     config = load_config()
     
     # Load data
+    print("Loading training and validation data...")
     train_data = load_dataset(config['data']['train_path'])
     val_data = load_dataset(config['data']['val_path'])
 
@@ -26,11 +32,20 @@ def train_llm():
     model_name = config['model']['llm']['base_model']
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    
-    # Create datasets
-    train_dataset = LLMDataset(train_data, tokenizer, config, mode="train")
-    val_dataset = LLMDataset(val_data, tokenizer, config, mode="val")
-    
+
+    # Create datasets with tqdm during preprocessing
+    print("Tokenizing and creating training dataset...")
+    train_dataset = LLMDataset(
+        list(tqdm(train_data, desc="Processing train data")), 
+        tokenizer, config, mode="train"
+    )
+
+    print("Tokenizing and creating validation dataset...")
+    val_dataset = LLMDataset(
+        list(tqdm(val_data, desc="Processing val data")), 
+        tokenizer, config, mode="val"
+    )
+
     # Data collator
     data_collator = DataCollatorForSeq2Seq(
         tokenizer=tokenizer,
@@ -62,14 +77,11 @@ def train_llm():
         predictions, labels = eval_pred
         predictions = np.where(predictions != -100, predictions, tokenizer.pad_token_id)
         
-        # Decode predictions and references
         decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True)
         labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
         decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
         
-        # Compute ROUGE scores
         rouge_scores = compute_rouge(decoded_preds, decoded_labels)
-        
         return rouge_scores
     
     # Initialize trainer
@@ -83,17 +95,8 @@ def train_llm():
         compute_metrics=compute_metrics,
     )
     
-    # Train the model
     print("Training LLM...")
     trainer.train()
-    
-    # Save the best model
-    # print("Saving the best model...")
-    # trainer.save_model(os.path.join(config['training']['llm']['save_dir'], 'best_model'))
-    
-    # # Save the configuration with the model
-    # with open(os.path.join(config['training']['llm']['save_dir'], 'best_model', 'config.yaml'), 'w') as f:
-    #     yaml.dump(config, f)
     
     print("LLM training completed!")
 

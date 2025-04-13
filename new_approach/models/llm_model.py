@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 import torch
 import os

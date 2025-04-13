@@ -2,6 +2,10 @@
 # Input: (question, answer) pair
 # Output: The perspective label of the entire answer or answer span
 # PerspectiveClassifier needed to predict which perspective(s) apply to the answer
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import torch
 import torch.nn as nn
 from models.base_encoder import BaseEncoder
