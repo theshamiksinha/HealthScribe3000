@@ -3,6 +3,8 @@ from transformers import PegasusTokenizer, PegasusForConditionalGeneration
 from data.llm_dataset import LLMDataset
 import torch
 import os
+from inference.evaluate_summariser import evaluate_pegasus_model
+from inference.eval_perspective_wise import evaluate_perspective_wise
 
 def train_or_load_summariser(config):
     model_dir = config["training"]["llm"]["save_dir"]
@@ -21,6 +23,9 @@ def train_or_load_summariser(config):
 
 def generate_summaries(model, tokenizer, test_data, config):
     test_dataset = LLMDataset(test_data, tokenizer, config, mode="test")
+    
+    evaluate_pegasus_model(model, tokenizer, test_dataset, output_dir="eval_after_training")
+    evaluate_perspective_wise(model, tokenizer, test_dataset, all_perspectives=list(config["perspectives"].keys()))
 
     print("\nGenerating summaries on test set...")
     model.eval()

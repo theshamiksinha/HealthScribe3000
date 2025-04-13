@@ -15,7 +15,7 @@ import yaml
 import json
 from tqdm import tqdm  # ✅ tqdm added
 from collections import Counter
-from modules.perspective_pipeline import predict_perspectives
+# from modules.perspective_pipeline import predict_perspectives
 
 def train_classifier():
     config = load_config()
@@ -116,11 +116,15 @@ def train_classifier():
         print(f"Epoch {epoch + 1}/{config['training']['classifier']['num_epochs']} - Loss: {total_loss / len(train_loader):.4f}")
 
         val_f1 = evaluate(model, val_loader, device, train_dataset.perspectives)
-        if val_f1 > best_val_f1:
-            best_val_f1 = val_f1
-            if config["training"].get("save_model", False):
-                torch.save(model.state_dict(), config["training"]["classifer"]["save_dir"])
-                print(f"✅ Best model saved (F1 = {val_f1:.4f})")
+        
+    # Save the trained classifier model
+    print("✅ Saving the trained PerspectiveClassifier model...\n")
+    save_dir = config["training"]["classifier"]["save_dir"]  # better to use a classifier-specific key
+    os.makedirs(save_dir, exist_ok=True)
+
+    model.model.save_pretrained(save_dir)  # this assumes model.model is a Huggingface transformer
+    tokenizer.save_pretrained(save_dir)
+
                 
     # test_data = load_dataset(config["data"]["test_path"])
     # predicted_test_data = predict_perspectives(model, tokenizer, test_data, config)  
