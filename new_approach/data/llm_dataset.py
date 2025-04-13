@@ -92,20 +92,16 @@ class LLMDataset(Dataset):
         return relevant_spans
 
     def _create_input_prompt(self, question, perspective, perspective_info, relevant_spans):
-        """Create the input prompt for the model."""
-        prompt = f"Question: {question}\n\n"
-        prompt += f"Perspective: {perspective}\n"
-        prompt += f"Definition: {perspective_info['definition']}\n"
-        prompt += f"TONE: {perspective_info['tone']}\n\n"
-        
-        prompt += "Summarize the following answers from the perspective of the question:\n"
-        
-        prompt += "Answers:\n"
+        prompt = f"Summarize the responses to the health question below.\n"
+        prompt += f"Focus on highlighting insights from the {perspective} perspective.\n"
+        prompt += f"Use a {perspective_info['tone']} tone. Be clear and concise.\n\n"
+        prompt += f"Perspective Definition: {perspective_info['definition']}\n\n"
+        prompt += f"Question: {question}\n\n"
+        prompt += f"Answers:\n"
         for span in relevant_spans:
             prompt += f"- {span}\n"
-        
         return prompt
-        
+ 
     def _create_target_output(self, relevant_spans, perspective):
         """Create the target output for the model: summarize the spans."""
         # Here, you will likely want to concatenate the spans and summarize them.
