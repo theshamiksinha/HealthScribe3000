@@ -6,6 +6,7 @@ from nltk.translate.meteor_score import meteor_score
 from nltk.tokenize import word_tokenize
 from bert_score import score as bertscore
 from tabulate import tabulate
+import tqdm
 
 def evaluate_perspective_wise(model, tokenizer, dataset, all_perspectives=None):
     print("Generating perspective-wise predictions...")
