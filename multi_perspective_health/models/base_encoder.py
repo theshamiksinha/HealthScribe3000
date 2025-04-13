@@ -10,7 +10,11 @@ class BaseEncoder(nn.Module):
         self.config = AutoConfig.from_pretrained(model_name)
         self.encoder = AutoModel.from_pretrained(model_name)
         self.hidden_size = self.config.hidden_size
-
+        
+    def __call__(self, input_ids, attention_mask=None, token_type_ids=None):
+        """Return the full sequence of hidden states (token embeddings)"""
+        return self.get_token_embeddings(input_ids, attention_mask, token_type_ids)
+        
     def forward(self, input_ids, attention_mask=None, token_type_ids=None):
         outputs = self.encoder(
             input_ids=input_ids,
@@ -25,6 +29,16 @@ class BaseEncoder(nn.Module):
             cls_output = sequence_output[:, 0, :]
             return cls_output
         return sequence_output
+    
+    def get_token_embeddings(self, input_ids, attention_mask=None, token_type_ids=None):
+        """Get token-level embeddings for sequence tagging"""
+        outputs = self.model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids
+        )
+        return outputs.last_hidden_state  # Shape: (batch_size, seq_len, hidden_size)
+    
     
     def get_pooled_output(self, input_ids, attention_mask=None, token_type_ids=None):
         outputs = self.model(
