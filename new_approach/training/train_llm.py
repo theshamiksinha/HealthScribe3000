@@ -42,8 +42,8 @@ def train_llm():
     # model.config.decoder_start_token_id = tokenizer.pad_token_id
     
     # For faster test runs (adjust/remove for real training)
-    # train_data = train_data[:int(len(train_data) * 0.1)]
-    # val_data = val_data[:int(len(val_data) * 0.1)]
+    train_data = train_data[:int(len(train_data) * 0.05)]
+    val_data = val_data[:int(len(val_data) * 0.05)]
     
 
     tokenizer = PegasusTokenizer.from_pretrained("google/pegasus-xsum")  # or your variant
