@@ -13,25 +13,23 @@ class LLMDataset(Dataset):
         Dataset for training LLMs to extract and summarize perspective-specific content.
         
         Args:
-            data: List of data instances
-            tokenizer: HuggingFace tokenizer
-            config: Configuration dictionary
-            mode: "train", "val", or "test"
+            data: List of data instances.
+            tokenizer: HuggingFace tokenizer.
+            config: Configuration dictionary.
+            mode: "train", "val", or "test".
         """
         self.data = data
         self.tokenizer = tokenizer
         self.config = config
         self.mode = mode
         self.max_length = config['model']['llm']['max_length']
-        # In this design, we assume the config's "perspectives" field is a dictionary 
-        # with keys like "INFORMATION", "CAUSE", etc., mapping to their definitions, tones, etc.
         self.perspectives = config['perspectives']
         self.examples = self.preprocess()
         
     def preprocess(self):
         """Process raw data into model-ready examples."""
         examples = []
-        max_pos_embeds = 384 # Pegasus default
+        max_pos_embeds = 1024  # Pegasus default
         vocab_size = self.tokenizer.vocab_size  # For clamping
 
         for idx, instance in enumerate(self.data):
@@ -49,13 +47,13 @@ class LLMDataset(Dataset):
             # Map each answer to its identified perspectives
             answer_perspectives = self._identify_answer_perspectives(raw_text, answers, labelled_spans)
             
-            # Create the input prompt using question and answers with detected perspectives
+            # Create input prompt from question and answer-perspective mapping
             input_prompt = self._create_input_prompt(question, answer_perspectives)
             
-            # Create target output using extracted spans and summaries
+            # Create target output using extracted spans and summaries from the data
             target_output = self._create_target_output(labelled_spans, labelled_summaries)
-            
-            # Tokenize inputs with truncation and padding
+        
+            # Tokenize inputs with appropriate truncation and padding
             inputs = self.tokenizer(
                 input_prompt,
                 max_length=min(self.max_length, max_pos_embeds),
@@ -72,11 +70,17 @@ class LLMDataset(Dataset):
                 return_tensors="pt"
             )
 
-            # Clamp token IDs to ensure they don't exceed vocab size
+            # Clamp token IDs to ensure none exceed vocab_size - 1
             inputs["input_ids"] = torch.clamp(inputs["input_ids"], max=vocab_size - 1)
             targets["input_ids"] = torch.clamp(targets["input_ids"], max=vocab_size - 1)
 
-            # Prepare labels; set pad tokens to -100 to ignore them in loss calculation
+            # Debug assertions: ensure token IDs (ignoring pad tokens) are valid
+            nonpad_input = inputs["input_ids"][inputs["input_ids"] != self.tokenizer.pad_token_id]
+            nonpad_target = targets["input_ids"][targets["input_ids"] != self.tokenizer.pad_token_id]
+            assert torch.max(nonpad_input) < vocab_size, f"Found input token id beyond vocab_size: {torch.max(nonpad_input)}"
+            assert torch.max(nonpad_target) < vocab_size, f"Found target token id beyond vocab_size: {torch.max(nonpad_target)}"
+
+            # Prepare labels: set pad tokens to -100 so they're ignored in loss calculation
             labels = targets["input_ids"][0].clone()
             labels[labels == self.tokenizer.pad_token_id] = -100
 
@@ -113,7 +117,7 @@ class LLMDataset(Dataset):
         return answer_perspectives
         
     def _create_input_prompt(self, question, answer_perspectives):
-        """Create the input prompt for the model."""
+        """Create the input prompt for the LLM."""
         prompt = f"Question: {question}\n\n"
         prompt += "TASK: Extract relevant text spans for each perspective and generate perspective summaries.\n\n"
         
@@ -140,7 +144,7 @@ class LLMDataset(Dataset):
                 for span in spans:
                     output += f"- {span['txt']}\n"
         
-        # Part 2: Perspective summaries
+        # Part 2: Perspective summaries from labelled_summaries field
         output += "\nPERSPECTIVE SUMMARIES:\n"
         for p_name in self.perspectives:
             summary_key = f"{p_name}_SUMMARY"
@@ -155,5 +159,4 @@ class LLMDataset(Dataset):
         return len(self.examples)
     
     def __getitem__(self, idx):
-        # Return the preprocessed example directly
         return self.examples[idx]
