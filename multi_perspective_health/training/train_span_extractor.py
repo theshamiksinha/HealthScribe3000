@@ -40,8 +40,8 @@ def train():
         val_data = json.load(f)
         
     # For faster test runs (adjust/remove for real training)
-    train_data = train_data[:int(len(train_data) * 0.1)]
-    val_data = val_data[:int(len(val_data) * 0.1)]
+    train_data = train_data[:int(len(train_data) * 0.01)]
+    val_data = val_data[:int(len(val_data) * 0.01)]
 
     
     # Create label map if not provided
@@ -159,6 +159,9 @@ def train():
         print(report)
         
         print("Evaluating on test set...")
+        first_batch = next(iter(dataloader))
+        print(first_batch)
+
         evaluate(model, val_loader, label_map_reverse, device=config['misc']['device'])
 
         
@@ -216,9 +219,8 @@ def evaluate(model, dataloader, id2label, device, max_print=5):
         for i, batch in enumerate(tqdm(dataloader)):
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels']
-            metadata = batch['metadata']
-
+            labels = batch['labels'] 
+            
             predicted_tag_idxs = model.predict(input_ids, attention_mask)
             predicted_tags = [[id2label[idx] for idx in sent] for sent in predicted_tag_idxs]
             gold_tags = [[id2label[idx] for idx in sent] for sent in labels.tolist()]
