@@ -31,7 +31,14 @@ def train_llm():
     # Initialize tokenizer and model
     model_name = config['model']['llm']['base_model']
     tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    # Make sure pad_token is properly set for Pegasus
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    # Ensure decoder_start_token_id is set properly
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    model.config.decoder_start_token_id = tokenizer.pad_token_id
 
     # Create datasets with tqdm during preprocessing
     print("Tokenizing and creating training dataset...")
@@ -62,12 +69,6 @@ def train_llm():
         gradient_accumulation_steps=config['training']['llm']['gradient_accumulation_steps'],
         learning_rate=float(config['training']['llm']['learning_rate']),
         weight_decay=0.01,
-        # save_strategy="epoch",
-        # evaluation_strategy="epoch",
-        # logging_dir=os.path.join(config['training']['llm']['save_dir'], 'logs'),
-        # load_best_model_at_end=True,
-        # metric_for_best_model="eval_rouge2",
-        # greater_is_better=True,
         fp16=torch.cuda.is_available(),
         report_to="none",
     )

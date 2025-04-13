@@ -51,37 +51,36 @@ class LLMDataset(Dataset):
             
             # Create target output
             target_output = self._create_target_output(labelled_spans, labelled_summaries)
-            
-            # Tokenize input and target
+            max_pos_embeds = 1024  # Pegasus default
+        
+            # Tokenize inputs with appropriate truncation
             inputs = self.tokenizer(
                 input_prompt,
-                max_length=self.max_length,
+                max_length=min(self.max_length, max_pos_embeds),
                 padding="max_length",
                 truncation=True,
                 return_tensors="pt"
             )
-            
+
+            # Ensure target doesn't exceed limits either
             targets = self.tokenizer(
                 target_output,
-                max_length=self.max_length,
+                max_length=min(self.max_length, max_pos_embeds),
                 padding="max_length",
                 truncation=True,
                 return_tensors="pt"
             )
-            
-            # Create example
-            example = {
-                "instance_id": idx,
+
+            # Make sure labels are properly formatted
+            labels = targets["input_ids"][0].clone()
+            # Set padding tokens to -100 so they're ignored in loss calculation
+            labels[labels == self.tokenizer.pad_token_id] = -100
+            examples.append({
                 "input_ids": inputs["input_ids"][0],
                 "attention_mask": inputs["attention_mask"][0],
-                "labels": targets["input_ids"][0],
-                "question": question,
-                "answers": answers,
-                "perspectives": list(set(p for persp_list in answer_perspectives.values() for p in persp_list))
-            }
-            
-            examples.append(example)
-            
+                "labels": labels,
+            })
+
         return examples
         
     def _identify_answer_perspectives(self, raw_text, answers, labelled_spans):
@@ -128,13 +127,13 @@ class LLMDataset(Dataset):
             prompt += f"- {p_name}: {p_info['definition']} (Tone: {p_info['tone']})\n"
         
         # Add answers with their identified perspectives
-        prompt += "\nAnswers with their perspectives:\n"
-        for i, (answer, perspectives) in enumerate(answer_perspectives.items()):
-            if perspectives:
-                persp_str = ", ".join(perspectives)
-                prompt += f"\nAnswer {i+1}: {answer}\n" 
-                prompt += f"Perspectives: {persp_str}\n"
-        
+        prompt += "\nAnswers and their perspectives:\n"
+        for answer, perspectives in answer_perspectives.items():
+            if not perspectives:  # Skip answers with no perspectives
+                continue
+            perspective_list = ", ".join(perspectives)
+            prompt += f"\nAnswer: {answer}\nPerspectives: {perspective_list}\n"
+
         return prompt
         
     def _create_target_output(self, labelled_spans, labelled_summaries):
