@@ -1,5 +1,6 @@
 from collections import defaultdict
 import torch
+from torch.utils.data import DataLoader
 from rouge_score import rouge_scorer
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from nltk.translate.meteor_score import meteor_score
@@ -14,13 +15,19 @@ def evaluate_perspective_wise(model, tokenizer, dataset, all_perspectives=None):
     model.eval()
     model.to(device)
 
+    # Wrap dataset in a DataLoader
+    dataloader = DataLoader(dataset, batch_size=1)
+
     # Store predictions and refs per perspective
     results = defaultdict(lambda: {"preds": [], "refs": []})
 
-    for batch in tqdm(dataset):
-        input_ids = batch["input_ids"].unsqueeze(0).to(device)
-        attention_mask = batch["attention_mask"].unsqueeze(0).to(device)
-        label_ids = batch["labels"].unsqueeze(0).to(device)
+    for batch in tqdm.tqdm(dataloader):
+        # Unwrap batch (since batch_size=1)
+        batch = {k: v.squeeze(0).to(device) if isinstance(v, torch.Tensor) else v[0] for k, v in batch.items()}
+        
+        input_ids = batch["input_ids"].unsqueeze(0)
+        attention_mask = batch["attention_mask"].unsqueeze(0)
+        label_ids = batch["labels"].unsqueeze(0)
         perspective = batch["perspective"]
 
         with torch.no_grad():
