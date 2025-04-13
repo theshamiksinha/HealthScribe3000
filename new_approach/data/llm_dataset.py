@@ -29,33 +29,27 @@ class LLMDataset(Dataset):
         self.examples = self.preprocess()
         
     def preprocess(self):
-        """Process raw data into model-ready examples."""
         examples = []
-        max_pos_embeds = 384 # Pegasus default
-        vocab_size = self.tokenizer.vocab_size  # For clamping
+        max_pos_embeds = 384
+        vocab_size = self.tokenizer.vocab_size
 
         for idx, instance in enumerate(self.data):
             question = instance["question"]
             raw_text = instance["raw_text"]
-            answers = instance["answers"]
+            answers = [a for a in instance["answers"] if a and a.strip() != '?']
             
-            # Filter out empty answers or '?'
-            answers = [a for a in answers if a and a.strip() != '?']
-            
-            # Get labelled spans and summaries
             labelled_spans = instance.get("labelled_answer_spans", {})
             labelled_summaries = instance.get("labelled_summaries", {})
             
-            # Map each answer to its identified perspectives
             answer_perspectives = self._identify_answer_perspectives(raw_text, answers, labelled_spans)
-            
-            # Create the input prompt using question and answers with detected perspectives
+            if not answer_perspectives:
+                continue  # Skip samples with no perspective alignment
+
             input_prompt = self._create_input_prompt(question, answer_perspectives)
-            
-            # Create target output using extracted spans and summaries
             target_output = self._create_target_output(labelled_spans, labelled_summaries)
-            
-            # Tokenize inputs with truncation and padding
+            if not target_output.strip():
+                continue  # Skip samples with no extractable target
+
             inputs = self.tokenizer(
                 input_prompt,
                 max_length=min(self.max_length, max_pos_embeds),
@@ -72,11 +66,6 @@ class LLMDataset(Dataset):
                 return_tensors="pt"
             )
 
-            # Clamp token IDs to ensure they don't exceed vocab size
-            inputs["input_ids"] = torch.clamp(inputs["input_ids"], max=vocab_size - 1)
-            targets["input_ids"] = torch.clamp(targets["input_ids"], max=vocab_size - 1)
-
-            # Prepare labels; set pad tokens to -100 to ignore them in loss calculation
             labels = targets["input_ids"][0].clone()
             labels[labels == self.tokenizer.pad_token_id] = -100
 
@@ -87,6 +76,7 @@ class LLMDataset(Dataset):
             })
 
         return examples
+
         
     def _identify_answer_perspectives(self, raw_text, answers, labelled_spans):
         """Identify which perspectives are present in each answer."""
