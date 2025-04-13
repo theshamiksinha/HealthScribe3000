@@ -29,14 +29,14 @@ training:
     batch_size: 32
     num_epochs: 5
     learning_rate: 2e-5
-    save_dir: "saved_models/classifier"
+    save_dir: "new_approach/saved_models/classifier"
   
   # LLM fine-tuning
   llm:
     batch_size: 4
     num_epochs: 3
     learning_rate: 5e-5
-    save_dir: "saved_models/llm"
+    save_dir: "new_approach/saved_models/llm"
     gradient_accumulation_steps: 4
 
 # Inference settings
