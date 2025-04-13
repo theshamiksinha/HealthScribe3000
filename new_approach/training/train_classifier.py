@@ -122,9 +122,9 @@ def train_classifier():
                 torch.save(model.state_dict(), config["training"]["classifer"]["save_dir"])
                 print(f"✅ Best model saved (F1 = {val_f1:.4f})")
                 
-    test_data = load_dataset(config["data"]["test_path"])
-    predicted_test_data = predict_perspectives(model, tokenizer, test_data, config)  
-    save_predictions_to_json(predicted_test_data)
+    # test_data = load_dataset(config["data"]["test_path"])
+    # predicted_test_data = predict_perspectives(model, tokenizer, test_data, config)  
+    # save_predictions_to_json(predicted_test_data)
 
 def evaluate(model, val_loader, device, perspectives):
     model.eval()

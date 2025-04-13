@@ -19,12 +19,11 @@ def main():
     predicted_test_data = predict_perspectives(classifier_model, classifier_tokenizer, test_data, config)  
     save_predictions_to_json(predicted_test_data)
 
+    print("\n===== STEP 3: TRAINING/LOADING LLM FOR SUMMARISATION =====")
+    summariser_model, summariser_tokenizer = train_or_load_summariser(config)
 
-    # print("\n===== STEP 3: TRAINING/LOADING LLM FOR SUMMARISATION =====")
-    # summariser_model, summariser_tokenizer = train_or_load_summariser(config)
-
-    # print("\n===== STEP 4: GENERATING PERSPECTIVE-WISE SUMMARIES =====")
-    # generate_summaries(summariser_model, summariser_tokenizer, predicted_test_data, config)
+    print("\n===== STEP 4: GENERATING PERSPECTIVE-WISE SUMMARIES =====")
+    generate_summaries(summariser_model, summariser_tokenizer, predicted_test_data, config)
 
 if __name__ == "__main__":
     main()
