@@ -33,9 +33,9 @@ def train_llm():
     test_data = load_dataset(config['data']['test_path'])
     
     # For faster test runs (adjust/remove for real training)
-    train_data = train_data[:int(len(train_data) * 0.01)]
-    val_data = val_data[:int(len(val_data) * 0.05)]
-    test_data = test_data[:int(len(val_data) * 0.05)]
+    # train_data = train_data[:int(len(train_data) * 0.01)]
+    # val_data = val_data[:int(len(val_data) * 0.05)]
+    # test_data = test_data[:int(len(val_data) * 0.05)]
     
     tokenizer = PegasusTokenizer.from_pretrained("google/pegasus-xsum")  # or your variant
     model = PegasusForConditionalGeneration.from_pretrained("google/pegasus-xsum")
@@ -112,41 +112,41 @@ def train_llm():
     tokenizer.save_pretrained(config["training"]["llm"]["save_dir"])
 
     # ########################################################################################################### #
-   
-    test_dataset = LLMDataset(test_data, tokenizer, config, mode="test")
+    """GENERATE SAMPLE PREDICTIONS"""
+    # test_dataset = LLMDataset(test_data, tokenizer, config, mode="test")
 
-    evaluate_pegasus_model(model, tokenizer, test_dataset, output_dir="eval_after_training")
-    evaluate_perspective_wise(model, tokenizer, test_dataset, all_perspectives=list(config["perspectives"].keys()))
+    # evaluate_pegasus_model(model, tokenizer, test_dataset, output_dir="eval_after_training")
+    # evaluate_perspective_wise(model, tokenizer, test_dataset, all_perspectives=list(config["perspectives"].keys()))
     
-    print("\nGenerating predictions for first 10 validation samples...")
-    model.eval()
-    for i in range(10):
-        sample = val_dataset[i]
-        input_ids = sample["input_ids"].unsqueeze(0).to(model.device)
-        attention_mask = sample["attention_mask"].unsqueeze(0).to(model.device)
+    # print("\nGenerating predictions for first 10 validation samples...")
+    # model.eval()
+    # for i in range(10):
+    #     sample = val_dataset[i]
+    #     input_ids = sample["input_ids"].unsqueeze(0).to(model.device)
+    #     attention_mask = sample["attention_mask"].unsqueeze(0).to(model.device)
 
-        with torch.no_grad():
-            output_ids = model.generate(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                max_length=config['model']['llm']['max_length'],  # or 128/256 etc
-                num_beams=4,
-                early_stopping=True,
-            )
+    #     with torch.no_grad():
+    #         output_ids = model.generate(
+    #             input_ids=input_ids,
+    #             attention_mask=attention_mask,
+    #             max_length=config['model']['llm']['max_length'],  # or 128/256 etc
+    #             num_beams=4,
+    #             early_stopping=True,
+    #         )
 
-        decoded_input = tokenizer.decode(input_ids[0], skip_special_tokens=True)
-        decoded_output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-        label_ids = sample["labels"].clone()
-        label_ids[label_ids == -100] = tokenizer.pad_token_id
-        decoded_reference = tokenizer.decode(label_ids, skip_special_tokens=True)
+    #     decoded_input = tokenizer.decode(input_ids[0], skip_special_tokens=True)
+    #     decoded_output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+    #     label_ids = sample["labels"].clone()
+    #     label_ids[label_ids == -100] = tokenizer.pad_token_id
+    #     decoded_reference = tokenizer.decode(label_ids, skip_special_tokens=True)
 
 
-        print(f"\n--- Sample {i+1} ---")
-        print(f"INPUT:\n{decoded_input}\n")
-        print(f"PREDICTED:\n{decoded_output}\n")
-        print(f"REFERENCE:\n{decoded_reference}\n")
+    #     print(f"\n--- Sample {i+1} ---")
+    #     print(f"INPUT:\n{decoded_input}\n")
+    #     print(f"PREDICTED:\n{decoded_output}\n")
+    #     print(f"REFERENCE:\n{decoded_reference}\n")
         
-        print("\n")
+    #     print("\n")
 
 if __name__ == "__main__":
     train_llm()

@@ -30,8 +30,8 @@ def train_classifier():
     val_data = load_dataset(config['data']['val_path'])
 
     # For faster test runs (adjust/remove for real training)
-    train_data = train_data[:int(len(train_data) * 0.1)]
-    val_data = val_data[:int(len(val_data) * 0.1)]
+    # train_data = train_data[:int(len(train_data) * 0.1)]
+    # val_data = val_data[:int(len(val_data) * 0.1)]
 
     train_dataset = PerspectiveClassificationDataset(
         data=train_data,
@@ -115,7 +115,7 @@ def train_classifier():
 
         print(f"Epoch {epoch + 1}/{config['training']['classifier']['num_epochs']} - Loss: {total_loss / len(train_loader):.4f}")
 
-        val_f1 = evaluate(model, val_loader, device, train_dataset.perspectives)
+        # val_f1 = evaluate(model, val_loader, device, train_dataset.perspectives)
         
     # Save the trained classifier model
     print("✅ Saving the trained PerspectiveClassifier model...\n")
