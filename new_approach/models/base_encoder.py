@@ -7,7 +7,7 @@ import torch.nn as nn
 from transformers import AutoModel, AutoConfig
 
 class BaseEncoder(nn.Module):
-    def __init__(self, model_name: str = "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract", output_cls: bool = False):
+    def __init__(self, model_name: str = "bert-base-uncased", output_cls: bool = False):
         super(BaseEncoder, self).__init__()
         self.output_cls = output_cls
         self.model = AutoModel.from_pretrained(model_name)
