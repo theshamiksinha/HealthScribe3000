@@ -159,7 +159,7 @@ def train():
         print(report)
         
         print("Evaluating on test set...")
-        first_batch = next(iter(dataloader))
+        first_batch = next(iter(val_loader))
         print(first_batch)
 
         evaluate(model, val_loader, label_map_reverse, device=config['misc']['device'])
