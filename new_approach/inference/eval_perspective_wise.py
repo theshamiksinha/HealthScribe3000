@@ -74,15 +74,20 @@ def evaluate_perspective_wise(model, tokenizer, dataset, all_perspectives=None):
         P, R, F1 = bertscore(preds, refs, lang="en", verbose=False)
         bert_f1 = F1.mean().item()
 
+        def truncate(x, decimals=2):
+            factor = 10 ** decimals
+            return int(x * factor) / factor
+
         table.append([
             perspective,
-            sum(rouge1_r)/len(rouge1_r), sum(rouge1_f)/len(rouge1_f),
-            sum(rouge2_r)/len(rouge2_r), sum(rouge2_f)/len(rouge2_f),
-            sum(rougeL_r)/len(rougeL_r), sum(rougeL_f)/len(rougeL_f),
-            sum(bleu_scores)/len(bleu_scores),
-            sum(meteor_scores)/len(meteor_scores),
-            bert_f1
+            truncate(sum(rouge1_r)/len(rouge1_r)), truncate(sum(rouge1_f)/len(rouge1_f)),
+            truncate(sum(rouge2_r)/len(rouge2_r)), truncate(sum(rouge2_f)/len(rouge2_f)),
+            truncate(sum(rougeL_r)/len(rougeL_r)), truncate(sum(rougeL_f)/len(rougeL_f)),
+            truncate(sum(bleu_scores)/len(bleu_scores)),
+            truncate(sum(meteor_scores)/len(meteor_scores)),
+            truncate(bert_f1)
         ])
+
 
     print("\n" + tabulate(
         table,
