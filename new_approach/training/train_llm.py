@@ -60,10 +60,10 @@ def train_llm():
     )
 
     # Data collator
-    data_collator = DataCollatorForSeq2Seq(
+    data_collator= DataCollatorForSeq2Seq(
         tokenizer=tokenizer,
         model=model,
-        padding='longest'
+        label_pad_token_id=-100
     )
     
     # Set up training arguments
@@ -77,6 +77,7 @@ def train_llm():
         weight_decay=0.01,
         fp16=torch.cuda.is_available(),
         report_to="none",
+        data_collator = data_collator,
     )
     
     # Define compute metrics function
