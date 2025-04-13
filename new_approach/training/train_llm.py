@@ -18,6 +18,7 @@ from data.data_utils import load_dataset, load_config
 import numpy as np
 from data.llm_dataset import LLMDataset
 from utils.metrics import compute_rouge
+from transformers import PegasusTokenizer, PegasusForConditionalGeneration
 
 def train_llm():
     # Load config
@@ -28,17 +29,22 @@ def train_llm():
     train_data = load_dataset(config['data']['train_path'])
     val_data = load_dataset(config['data']['val_path'])
 
-    # Initialize tokenizer and model
-    model_name = config['model']['llm']['base_model']
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # # Initialize tokenizer and model
+    # model_name = config['model']['llm']['base_model']
+    # tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    # Make sure pad_token is properly set for Pegasus
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    # # Make sure pad_token is properly set for Pegasus
+    # if tokenizer.pad_token is None:
+    #     tokenizer.pad_token = tokenizer.eos_token
 
-    # Ensure decoder_start_token_id is set properly
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    model.config.decoder_start_token_id = tokenizer.pad_token_id
+    # # Ensure decoder_start_token_id is set properly
+    # model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    # model.config.decoder_start_token_id = tokenizer.pad_token_id
+    
+
+    tokenizer = PegasusTokenizer.from_pretrained("google/pegasus-large")  # or your variant
+    model = PegasusForConditionalGeneration.from_pretrained("google/pegasus-large")
+
 
     # Create datasets with tqdm during preprocessing
     print("Tokenizing and creating training dataset...")

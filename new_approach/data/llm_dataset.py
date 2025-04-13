@@ -2,7 +2,6 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
@@ -30,7 +29,9 @@ class LLMDataset(Dataset):
     def preprocess(self):
         """Process raw data into model-ready examples"""
         examples = []
-        
+        max_pos_embeds = 1024  # Pegasus default
+        vocab_size = self.tokenizer.vocab_size  # For clamping
+
         for idx, instance in enumerate(self.data):
             question = instance["question"]
             raw_text = instance["raw_text"]
@@ -51,7 +52,6 @@ class LLMDataset(Dataset):
             
             # Create target output
             target_output = self._create_target_output(labelled_spans, labelled_summaries)
-            max_pos_embeds = 1024  # Pegasus default
         
             # Tokenize inputs with appropriate truncation
             inputs = self.tokenizer(
@@ -62,7 +62,6 @@ class LLMDataset(Dataset):
                 return_tensors="pt"
             )
 
-            # Ensure target doesn't exceed limits either
             targets = self.tokenizer(
                 target_output,
                 max_length=min(self.max_length, max_pos_embeds),
@@ -71,10 +70,14 @@ class LLMDataset(Dataset):
                 return_tensors="pt"
             )
 
-            # Make sure labels are properly formatted
+            # Clamp token IDs to avoid out-of-vocab errors
+            inputs["input_ids"] = torch.clamp(inputs["input_ids"], max=vocab_size - 1)
+            targets["input_ids"] = torch.clamp(targets["input_ids"], max=vocab_size - 1)
+
+            # Prepare labels
             labels = targets["input_ids"][0].clone()
-            # Set padding tokens to -100 so they're ignored in loss calculation
             labels[labels == self.tokenizer.pad_token_id] = -100
+
             examples.append({
                 "input_ids": inputs["input_ids"][0],
                 "attention_mask": inputs["attention_mask"][0],
@@ -87,30 +90,21 @@ class LLMDataset(Dataset):
         """Identify which perspectives are present in each answer"""
         answer_perspectives = {}
         
-        # Extract perspective-related spans for each answer
         for answer in answers:
-            # Find the position of this answer in the raw text
             answer_start = raw_text.find(answer)
-            
-            # Skip if answer not found in raw text
             if answer_start == -1:
                 continue
-                
             answer_end = answer_start + len(answer)
             present_perspectives = set()
             
-            # Check which perspectives' spans overlap with this answer
             for perspective, spans in labelled_spans.items():
                 for span in spans:
                     span_start, span_end = span["label_spans"]
-                    
-                    # Check if this span overlaps with the answer
                     if (answer_start <= span_start < answer_end or 
                         answer_start < span_end <= answer_end or
                         span_start <= answer_start < span_end):
                         present_perspectives.add(perspective)
             
-            # Store perspectives for this answer
             if present_perspectives:
                 answer_perspectives[answer] = list(present_perspectives)
         
@@ -121,15 +115,13 @@ class LLMDataset(Dataset):
         prompt = f"Question: {question}\n\n"
         prompt += "TASK: Extract relevant text spans for each perspective and generate perspective summaries.\n\n"
         
-        # Add definitions for all perspectives
         prompt += "Perspectives:\n"
         for p_name, p_info in self.perspectives.items():
             prompt += f"- {p_name}: {p_info['definition']} (Tone: {p_info['tone']})\n"
         
-        # Add answers with their identified perspectives
         prompt += "\nAnswers and their perspectives:\n"
         for answer, perspectives in answer_perspectives.items():
-            if not perspectives:  # Skip answers with no perspectives
+            if not perspectives:
                 continue
             perspective_list = ", ".join(perspectives)
             prompt += f"\nAnswer: {answer}\nPerspectives: {perspective_list}\n"
@@ -138,7 +130,6 @@ class LLMDataset(Dataset):
         
     def _create_target_output(self, labelled_spans, labelled_summaries):
         """Create the target output for the model"""
-        # Part 1: Extracted spans organized by perspective
         output = "EXTRACTED SPANS:\n"
         for p_name, spans in labelled_spans.items():
             if spans:
@@ -146,14 +137,12 @@ class LLMDataset(Dataset):
                 for span in spans:
                     output += f"- {span['txt']}\n"
         
-        # Part 2: Perspective summaries
         output += "\nPERSPECTIVE SUMMARIES:\n"
         for p_name in self.perspectives:
             summary_key = f"{p_name}_SUMMARY"
             if summary_key in labelled_summaries:
                 p_info = self.perspectives.get(p_name, {})
                 start_phrase = p_info.get('start_phrase', f"{p_name}:")
-                
                 output += f"{summary_key}: {start_phrase} {labelled_summaries[summary_key]}\n"
         
         return output
