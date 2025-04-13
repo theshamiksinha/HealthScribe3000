@@ -6,8 +6,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # Train the SpanExtractorWithCRF model
-import sys
-import os
+import numpy as np
 import json
 import yaml
 import torch
@@ -160,8 +159,13 @@ def train():
         
         # Perform detailed evaluation with examples
         print("\nDetailed Evaluation with Examples:")
-        evaluate(model, val_loader, tokenizer, label_map_reverse, device)
-        
+        model.eval()
+        print(f"\nEvaluating model after epoch {epoch+1}...")
+        report, entity_metrics = evaluate(model, val_loader, tokenizer, label_map_reverse, device)
+
+        # Calculate overall F1 for model saving
+        f1 = np.mean([metrics['f1'] for metrics in entity_metrics.values()])
+                
         
         # Save best model
         # if f1 > best_f1:
@@ -190,6 +194,7 @@ def train():
 def evaluate(model, val_loader, tokenizer, id2label, device, num_examples=5):
     """
     Evaluate the model and print examples of predictions vs. ground truth.
+    Focus on examples where the model both succeeds and fails at detecting spans.
     
     Args:
         model: The trained SpanExtractorWithCRF model
@@ -198,19 +203,16 @@ def evaluate(model, val_loader, tokenizer, id2label, device, num_examples=5):
         id2label: Mapping from tag IDs to tag names
         device: Device to run inference on
         num_examples: Number of examples to print
-    
-    Returns:
-        Dictionary with validation metrics
     """
     model.eval()
     all_preds = []
     all_labels = []
     
-    # For printing examples
-    examples_to_print = []
+    # For storing all examples with their predictions
+    all_examples = []
     
     with torch.no_grad():
-        for batch_idx, batch in enumerate(val_loader):
+        for batch in tqdm(val_loader, desc="Evaluating"):
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
@@ -219,114 +221,296 @@ def evaluate(model, val_loader, tokenizer, id2label, device, num_examples=5):
             # Get model predictions
             preds = model(input_ids, attention_mask, token_type_ids)
             
-            # Collect predictions and labels
+            # Collect predictions and labels for each sequence
             for i, pred_seq in enumerate(preds):
-                # Get the actual sequence length (non-padding)
                 seq_len = attention_mask[i].sum().item()
-                
-                # Get the predicted and gold labels
                 pred_tags = [id2label[tag_id] for tag_id in pred_seq[:seq_len]]
                 true_tags = [id2label[tag_id] for tag_id in labels[i][:seq_len].cpu().tolist()]
                 
-                all_preds.append(pred_seq[:seq_len])
-                all_labels.append(labels[i][:seq_len].cpu().tolist())
+                all_preds.extend(pred_seq[:seq_len])
+                all_labels.extend(labels[i][:seq_len].cpu().tolist())
                 
-                # Store examples for later printing
-                if len(examples_to_print) < num_examples and batch_idx % (len(val_loader) // num_examples) == 0:
-                    # Decode the input tokens
-                    tokens = tokenizer.convert_ids_to_tokens(input_ids[i][:seq_len].cpu().tolist())
-                    
-                    # Find where the answer part starts (based on token_type_ids)
-                    answer_start = 0
-                    for j in range(seq_len):
-                        if token_type_ids[i][j] == 1:
-                            answer_start = j
-                            break
-                            
-                    # Only keep tokens from the answer
-                    answer_tokens = tokens[answer_start:]
-                    answer_pred_tags = pred_tags[answer_start:]
-                    answer_true_tags = true_tags[answer_start:]
-                    
-                    examples_to_print.append({
+                # Find where the answer part starts (based on token_type_ids)
+                answer_start = 0
+                for j in range(seq_len):
+                    if token_type_ids[i][j].item() == 1:
+                        answer_start = j
+                        break
+                
+                # Only keep tokens from the answer
+                tokens = tokenizer.convert_ids_to_tokens(input_ids[i][:seq_len].cpu().tolist())
+                answer_tokens = tokens[answer_start:seq_len]
+                answer_pred_tags = pred_tags[answer_start:seq_len]
+                answer_true_tags = true_tags[answer_start:seq_len]
+                
+                # Count how many non-O tags in gold and predictions
+                gold_spans = sum(1 for tag in answer_true_tags if tag != 'O')
+                pred_spans = sum(1 for tag in answer_pred_tags if tag != 'O')
+                
+                # Only store examples with at least one gold span
+                if gold_spans > 0:
+                    all_examples.append({
                         'tokens': answer_tokens,
                         'pred_tags': answer_pred_tags,
-                        'true_tags': answer_true_tags
+                        'true_tags': answer_true_tags,
+                        'gold_spans': gold_spans,
+                        'pred_spans': pred_spans,
+                        # Calculate an "interestingness" score - higher when predictions differ from gold
+                        'interestingness': sum(1 for t, p in zip(answer_true_tags, answer_pred_tags) if t != p) / len(answer_true_tags)
                     })
     
-    # Calculate F1 score
-    f1, report = compute_token_f1(all_preds, all_labels, id2label)
+    # Calculate F1 scores for each perspective type
+    perspectives = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
+    
+    # Convert flat lists to tag names
+    y_true = [id2label[label] if isinstance(label, int) else label for label in all_labels]
+    y_pred = [id2label[pred] if isinstance(pred, int) else pred for pred in all_preds]
+    
+    # Print detailed performance by perspective
+    print("\n===== PERFORMANCE BY PERSPECTIVE =====")
+    report = classification_report(y_true, y_pred)
+    print(report)
+    
+    # Calculate entity-level F1 scores (not just token-level)
+    entity_metrics = calculate_entity_level_f1(all_examples)
+    print("\n===== ENTITY-LEVEL METRICS =====")
+    print("Perspective\tPrecision\tRecall\tF1")
+    for persp, metrics in entity_metrics.items():
+        print(f"{persp}\t{metrics['precision']:.3f}\t{metrics['recall']:.3f}\t{metrics['f1']:.3f}")
+    
+    # Find good and bad examples to print
+    sorted_examples = sorted(all_examples, key=lambda x: x['interestingness'], reverse=True)
+    
+    # Select a mix of interesting examples
+    examples_to_print = []
+    # First, add some examples where the model completely missed spans
+    missed_examples = [ex for ex in sorted_examples if ex['gold_spans'] > 0 and ex['pred_spans'] == 0]
+    if missed_examples:
+        examples_to_print.extend(missed_examples[:min(2, len(missed_examples))])
+    
+    # Add some examples where the model found some spans but missed others
+    partial_examples = [ex for ex in sorted_examples 
+                       if ex['gold_spans'] > ex['pred_spans'] > 0 
+                       and ex not in examples_to_print]
+    if partial_examples:
+        examples_to_print.extend(partial_examples[:min(2, len(partial_examples))])
+    
+    # Add some examples where the model did well
+    good_examples = [ex for ex in sorted_examples 
+                    if ex['gold_spans'] > 0 and ex['interestingness'] < 0.3 
+                    and ex not in examples_to_print]
+    if good_examples:
+        examples_to_print.extend(good_examples[:min(1, len(good_examples))])
     
     # Print examples
     print("\n===== PREDICTION EXAMPLES =====")
-    for idx, example in enumerate(examples_to_print):
+    for idx, example in enumerate(examples_to_print[:num_examples]):
         print(f"\nExample {idx+1}:")
         print("Original Text with Gold Spans:")
-        _print_tagged_text(example['tokens'], example['true_tags'])
+        print_tagged_text(example['tokens'], example['true_tags'])
         
         print("\nPredicted Spans:")
-        _print_tagged_text(example['tokens'], example['pred_tags'])
+        print_tagged_text(example['tokens'], example['pred_tags'])
         print("-" * 80)
     
-    return {
-        'f1': f1,
-        'report': report
-    }
+    return report, entity_metrics
 
-def _print_tagged_text(tokens, tags):
-    """Helper function to print text with colored spans for different perspective types."""
-    # Terminal colors
+def print_tagged_text(tokens, tags):
+    """Print text with colored or bracketed spans for different perspective types."""
+    # For terminals that support colors:
+    use_colors = True  # Set to False if your terminal doesn't support colors
+    
     colors = {
-        'B-INFORMATION': '\033[94m',  # Blue
-        'I-INFORMATION': '\033[94m',
-        'B-SUGGESTION': '\033[92m',   # Green
-        'I-SUGGESTION': '\033[92m',
-        'B-CAUSE': '\033[91m',        # Red
-        'I-CAUSE': '\033[91m',
-        'B-EXPERIENCE': '\033[93m',   # Yellow
-        'I-EXPERIENCE': '\033[93m',
-        'B-QUESTION': '\033[95m',     # Magenta
-        'I-QUESTION': '\033[95m',
-        'O': '\033[0m',               # Reset
-        'END': '\033[0m'              # Reset
+        'INFORMATION': ('\033[94m', '\033[0m'),  # Blue
+        'SUGGESTION': ('\033[92m', '\033[0m'),   # Green
+        'CAUSE': ('\033[91m', '\033[0m'),        # Red
+        'EXPERIENCE': ('\033[93m', '\033[0m'),   # Yellow
+        'QUESTION': ('\033[95m', '\033[0m'),     # Magenta
     }
     
-    # Format special tokens to be more readable
-    formatted_tokens = []
-    for token in tokens:
-        if token.startswith('##'):
-            formatted_tokens.append(token[2:])
-        elif token in ['[CLS]', '[SEP]', '[PAD]']:
+    brackets = {
+        'INFORMATION': ('[INFO]', '[/INFO]'),
+        'SUGGESTION': ('[SUGG]', '[/SUGG]'),
+        'CAUSE': ('[CAUSE]', '[/CAUSE]'),
+        'EXPERIENCE': ('[EXP]', '[/EXP]'),
+        'QUESTION': ('[Q]', '[/Q]'),
+    }
+    
+    # Format special tokens for better readability
+    text = ""
+    current_tag = None
+    
+    for token, tag in zip(tokens, tags):
+        # Handle special tokens
+        if token in ['[CLS]', '[SEP]', '[PAD]']:
             continue
+        
+        # Format subword tokens
+        if token.startswith('##'):
+            token = token[2:]
         else:
-            formatted_tokens.append(' ' + token)
-    
-    # Print the text with colors
-    current_perspective = None
-    output_text = ""
-    
-    for token, tag in zip(formatted_tokens, tags):
+            token = ' ' + token if text else token
+        
+        # Check for tag changes
         if tag.startswith('B-'):
-            # Start of a new perspective span
-            if current_perspective:
-                output_text += colors['END']
-            current_perspective = tag[2:]
-            output_text += colors[tag] + token
+            # Close previous tag if any
+            if current_tag:
+                text += colors[current_tag][1] if use_colors else brackets[current_tag][1]
+            
+            # Start new tag
+            current_tag = tag[2:]  # Remove 'B-' prefix
+            text += (colors[current_tag][0] if use_colors else brackets[current_tag][0]) + token
+        
         elif tag.startswith('I-'):
-            # Continuation of a perspective span
-            output_text += token
-        else:  # 'O' tag
-            if current_perspective:
-                output_text += colors['END']
-                current_perspective = None
-            output_text += token
+            perspective = tag[2:]  # Remove 'I-' prefix
+            
+            # Handle case where an I- tag appears without a preceding B- tag
+            if current_tag is None:
+                current_tag = perspective
+                text += (colors[current_tag][0] if use_colors else brackets[current_tag][0]) + token
+            elif current_tag != perspective:
+                # Tag changed without a B- tag (unusual but handle it)
+                text += colors[current_tag][1] if use_colors else brackets[current_tag][1]
+                current_tag = perspective
+                text += (colors[current_tag][0] if use_colors else brackets[current_tag][0]) + token
+            else:
+                # Continue current tag
+                text += token
+        
+        elif tag == 'O':
+            # End any current tag
+            if current_tag:
+                text += colors[current_tag][1] if use_colors else brackets[current_tag][1]
+                current_tag = None
+            text += token
     
-    # End any open color codes
-    if current_perspective:
-        output_text += colors['END']
+    # Close any open tag
+    if current_tag:
+        text += colors[current_tag][1] if use_colors else brackets[current_tag][1]
     
-    print(output_text)
+    print(text)
 
+def calculate_entity_level_f1(examples):
+    """
+    Calculate entity-level (span-level) metrics instead of token-level.
+    This is more useful for evaluating span extraction performance.
+    """
+    # Initialize counts for each perspective
+    perspectives = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
+    metrics = {p: {'tp': 0, 'fp': 0, 'fn': 0} for p in perspectives}
+    
+    for example in examples:
+        tokens = example['tokens']
+        true_tags = example['true_tags']
+        pred_tags = example['pred_tags']
+        
+        # Extract spans from tags
+        true_spans = extract_spans(tokens, true_tags)
+        pred_spans = extract_spans(tokens, pred_tags)
+        
+        # Count true positives, false positives, and false negatives
+        for perspective in perspectives:
+            true_persp_spans = true_spans.get(perspective, [])
+            pred_persp_spans = pred_spans.get(perspective, [])
+            
+            # Find matching spans (true positives)
+            tp = 0
+            for pred_span in pred_persp_spans:
+                if any(overlap(pred_span, true_span) > 0.5 for true_span in true_persp_spans):
+                    tp += 1
+            
+            # Calculate metrics
+            fp = len(pred_persp_spans) - tp
+            fn = len(true_persp_spans) - tp
+            
+            # Update counts
+            metrics[perspective]['tp'] += tp
+            metrics[perspective]['fp'] += fp
+            metrics[perspective]['fn'] += fn
+    
+    # Calculate precision, recall, and F1 for each perspective
+    results = {}
+    for perspective, counts in metrics.items():
+        tp = counts['tp']
+        fp = counts['fp']
+        fn = counts['fn']
+        
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+        
+        results[perspective] = {
+            'precision': precision,
+            'recall': recall,
+            'f1': f1
+        }
+    
+    return results
+
+def extract_spans(tokens, tags):
+    """Extract spans from BIO tags."""
+    spans = {}
+    current_span = None
+    current_type = None
+    
+    for i, (token, tag) in enumerate(zip(tokens, tags)):
+        if tag.startswith('B-'):
+            # End previous span if any
+            if current_span is not None:
+                if current_type not in spans:
+                    spans[current_type] = []
+                spans[current_type].append((current_span, ' '.join(tokens[start:i])))
+            
+            # Start new span
+            current_type = tag[2:]  # Remove 'B-' prefix
+            start = i
+            current_span = (start, i)
+        
+        elif tag.startswith('I-'):
+            perspective = tag[2:]  # Remove 'I-' prefix
+            
+            # Continue current span or start a new one if none exists
+            if current_span is not None and current_type == perspective:
+                current_span = (current_span[0], i)
+            elif current_type is None or current_type != perspective:
+                # Handle cases where I- appears without B-
+                current_type = perspective
+                start = i
+                current_span = (start, i)
+        
+        elif tag == 'O':
+            # End previous span if any
+            if current_span is not None:
+                if current_type not in spans:
+                    spans[current_type] = []
+                spans[current_type].append((current_span, ' '.join(tokens[start:i])))
+                current_span = None
+                current_type = None
+    
+    # Handle span at the end of the sequence
+    if current_span is not None:
+        if current_type not in spans:
+            spans[current_type] = []
+        spans[current_type].append((current_span, ' '.join(tokens[start:len(tokens)])))
+    
+    return spans
+
+def overlap(span1, span2):
+    """Calculate the overlap between two spans."""
+    s1, e1 = span1[0]
+    s2, e2 = span2[0]
+    
+    overlap_start = max(s1, s2)
+    overlap_end = min(e1, e2)
+    
+    if overlap_end < overlap_start:
+        return 0
+    
+    overlap_length = overlap_end - overlap_start + 1
+    span1_length = e1 - s1 + 1
+    span2_length = e2 - s2 + 1
+    
+    return overlap_length / max(span1_length, span2_length)
 
 if __name__ == "__main__":
     train()
