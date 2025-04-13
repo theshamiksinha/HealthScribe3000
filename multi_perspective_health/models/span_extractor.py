@@ -60,3 +60,11 @@ class SpanExtractorWithCRF(nn.Module):
     # Helper method to get tag names from predicted tag IDs
     def get_tag_names(self, tag_ids, id2label):
         return [[id2label[tag_id] for tag_id in seq] for seq in tag_ids]
+    
+     def predict(self, input_ids, attention_mask):
+        self.eval()  # Set the model in evaluation mode
+        with torch.no_grad():
+            outputs = self(input_ids, attention_mask=attention_mask)
+            logits = outputs[1]  # Assuming logits are at index 1
+            predicted_tag_idxs = torch.argmax(logits, dim=-1).cpu().numpy()
+        return predicted_tag_idxs
