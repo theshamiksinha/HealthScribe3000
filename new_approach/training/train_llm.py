@@ -72,15 +72,10 @@ def train_llm():
         # evaluation_strategy="steps",
         eval_steps=100,
         save_steps=100,
-        logging_steps=50,
-        save_total_limit=2,
         per_device_train_batch_size=2,
         per_device_eval_batch_size=2,
         num_train_epochs=3,
-        predict_with_generate=True,
         fp16=True,  # if you're on GPU with mixed precision support
-        report_to="none",
-        load_best_model_at_end=True,
     )
 
     
