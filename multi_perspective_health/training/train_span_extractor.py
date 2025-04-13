@@ -184,6 +184,8 @@ def train():
         scheduler.step()
 
     print(f"Training completed. Best F1: {best_f1:.4f}")
+    
+
 def idxs_to_spans(tags, tokens):
     spans = []
     span, tag = [], None
@@ -212,9 +214,10 @@ def evaluate(model, dataloader, id2label, device, max_print=5):
 
     with torch.no_grad():
         for i, batch in enumerate(tqdm(dataloader)):
-            input_ids, attention_mask, labels, metadata = batch
-            input_ids = input_ids.to(device)
-            attention_mask = attention_mask.to(device)
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            labels = batch['labels']
+            metadata = batch['metadata']
 
             predicted_tag_idxs = model.predict(input_ids, attention_mask)
             predicted_tags = [[id2label[idx] for idx in sent] for sent in predicted_tag_idxs]
@@ -223,7 +226,6 @@ def evaluate(model, dataloader, id2label, device, max_print=5):
             all_preds.extend(predicted_tags)
             all_labels.extend(gold_tags)
 
-            # Print a few examples
             if i < max_print:
                 tokens = metadata[0]['tokens']
                 question = metadata[0].get('question', '')
@@ -239,9 +241,9 @@ def evaluate(model, dataloader, id2label, device, max_print=5):
                 for s, p in pred_spans:
                     print(f"  - [{p}] {s}")
                 print("-" * 70)
-                
-    model.train()
-    return
+ 
+    model.train() 
+
 
 if __name__ == "__main__":
     train()
