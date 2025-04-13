@@ -117,7 +117,7 @@ def train_classifier():
 
         scheduler.step()
 
-        print(f"Epoch {epoch + 1}/{config['training']["classifer"]['num_epochs']} - Loss: {total_loss / len(train_loader):.4f}")
+        print(f"Epoch {epoch + 1}/{config['training']['classifer']['num_epochs']} - Loss: {total_loss / len(train_loader):.4f}")
 
         val_f1 = evaluate(model, val_loader, device, train_dataset.perspectives)
         if val_f1 > best_val_f1:
