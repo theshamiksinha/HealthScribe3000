@@ -16,7 +16,7 @@ from models.span_extractor import SpanExtractorWithCRF
 from data.span_dataset import SpanDataset
 from utils.metrics import compute_token_f1
 from tqdm import tqdm
-
+from sklearn.metrics import classification_report
 
 def load_config(path='config/config.yaml'):
     with open(path, 'r') as f:
