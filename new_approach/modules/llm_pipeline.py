@@ -29,10 +29,12 @@ def generate_summaries(model, tokenizer, test_data, config):
 
     print("\nGenerating summaries on test set...")
     model.eval()
+    device = next(model.parameters()).device  # Get model device
+
     for i in range(10):
         sample = test_dataset[i]
-        input_ids = sample["input_ids"].unsqueeze(0)
-        attention_mask = sample["attention_mask"].unsqueeze(0)
+        input_ids = sample["input_ids"].unsqueeze(0).to(device)
+        attention_mask = sample["attention_mask"].unsqueeze(0).to(device)
 
         with torch.no_grad():
             output_ids = model.generate(
@@ -42,12 +44,21 @@ def generate_summaries(model, tokenizer, test_data, config):
                 num_beams=4,
                 early_stopping=True,
             )
+
         input_text = tokenizer.decode(input_ids[0], skip_special_tokens=True)
         output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-        ref_text = tokenizer.decode(
-            sample["labels"].masked_fill(sample["labels"] == -100, tokenizer.pad_token_id),
-            skip_special_tokens=True,
-        )
+
+        # Only decode reference summary if labels are available
+        if "labels" in sample:
+            labels = sample["labels"].to(device)
+            ref_text = tokenizer.decode(
+                labels.masked_fill(labels == -100, tokenizer.pad_token_id),
+                skip_special_tokens=True,
+            )
+        else:
+            ref_text = "[No reference summary available]"
+
         print(f"\n📝 INPUT:\n{input_text}\n")
         print(f"🔮 PREDICTED SUMMARY:\n{output_text}\n")
         print(f"✅ REFERENCE SUMMARY:\n{ref_text}\n")
+
