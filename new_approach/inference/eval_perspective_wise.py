@@ -93,5 +93,5 @@ def evaluate_perspective_wise(model, tokenizer, dataset, all_perspectives=None):
             "BLEU", "METEOR", "BERTScore F1"
         ],
         floatfmt=".6f",
-        tablefmt="github"
+        tablefmt="fancy_grid"
     ))
