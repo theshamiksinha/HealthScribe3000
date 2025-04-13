@@ -11,20 +11,24 @@ def compute_token_f1(preds, labels, label_map):
     Arguments:
         preds: List of predicted label ids (e.g., [[0, 1, 2], [1, 0, 2], ...])
         labels: List of true label ids (e.g., [[0, 1, 2], [1, 0, 2], ...])
-        label_map: A dictionary mapping label ids to tag strings (e.g., {0: 'O', 1: 'B-INFORMATION', 2: 'I-INFORMATION'})
+        label_map: A dictionary mapping label ids to tag strings 
+                   (e.g., {0: 'O', 1: 'B-INFORMATION', 2: 'I-INFORMATION'})
 
     Returns:
-        f1: The computed F1 score for token-level predictions.
+        f1: The computed F1 score for token-level predictions using seqeval.
     """
     # Convert label ids to tag strings using the label_map
-    # preds = [[label_map[i] for i in seq] for seq in preds]
-    # labels = [[label_map[i] for i in seq] for seq in labels]
-    preds = [[label_map[i] for i in seq if i != 0] for seq in preds]
-    labels = [[label_map[i] for i in seq if i != 0] for seq in labels]
-    print(labels[0])
-    # Use seqeval to compute the F1 score 
-    f1 = f1_score(labels, preds)
+    preds_str = [[label_map[i] for i in seq] for seq in preds]
+    labels_str = [[label_map[i] for i in seq] for seq in labels]
+
+    # Now filter out padding tokens (usually 'O' or a special tag like '<PAD>')
+    # If padding is included in your label map, you should remove it by checking a pad_token_label_id (like -100)
+    # Assuming 0 corresponds to "O", we usually do NOT remove it, since "O" is a valid tag
+
+    # Compute F1 score using seqeval
+    f1 = f1_score(labels_str, preds_str)
     return f1
+
 
 def compute_multilabel_metrics(predictions, labels, class_names):
     """

@@ -159,21 +159,21 @@ def train():
         print(report)
         
         # Save best model
-        if f1 > best_f1:
-            best_f1 = f1
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'f1': f1,
-            }, os.path.join(config['training']['save_dir'], 'best_span_model.pt'))
-            print(f"✅ New best model saved with F1: {f1:.4f}")
-            patience = 0
-        else:
-            patience += 1
-            if patience >= max_patience:
-                print(f"Early stopping after {patience} epochs without improvement")
-                break
+        # if f1 > best_f1:
+        #     best_f1 = f1
+        #     torch.save({
+        #         'epoch': epoch,
+        #         'model_state_dict': model.state_dict(),
+        #         'optimizer_state_dict': optimizer.state_dict(),
+        #         'f1': f1,
+        #     }, os.path.join(config['training']['save_dir'], 'best_span_model.pt'))
+        #     print(f"✅ New best model saved with F1: {f1:.4f}")
+        #     patience = 0
+        # else:
+        #     patience += 1
+        #     if patience >= max_patience:
+        #         print(f"Early stopping after {patience} epochs without improvement")
+        #         break
         
         # Update learning rate
         scheduler.step()
