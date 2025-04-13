@@ -32,18 +32,6 @@ def train_llm():
     val_data = load_dataset(config['data']['val_path'])
     test_data = load_dataset(config['data']['test_path'])
     
-    # # Initialize tokenizer and model
-    # model_name = config['model']['llm']['base_model']
-    # tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-    # # Make sure pad_token is properly set for Pegasus
-    # if tokenizer.pad_token is None:
-    #     tokenizer.pad_token = tokenizer.eos_token
-
-    # # Ensure decoder_start_token_id is set properly
-    # model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    # model.config.decoder_start_token_id = tokenizer.pad_token_id
-    
     # For faster test runs (adjust/remove for real training)
     train_data = train_data[:int(len(train_data) * 0.05)]
     val_data = val_data[:int(len(val_data) * 0.05)]
@@ -114,8 +102,14 @@ def train_llm():
     print("Training LLM...")
     trainer.train()
     
-    print("LLM training completed!")
+    print("LLM training completed!\n")
     
+    # Save the trained model
+    print("saving the trained model\n")
+    trainer.save_model("./pegasus_outputs/final_model")
+
+
+    # ########################################################################################################### #
    
     test_dataset = LLMDataset(test_data, tokenizer, config, mode="test")
 
