@@ -1,4 +1,5 @@
 from collections import defaultdict
+import torch
 from rouge_score import rouge_scorer
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from nltk.translate.meteor_score import meteor_score
