@@ -28,7 +28,7 @@ class LLMDataset(Dataset):
         
     def preprocess(self):
         examples = []
-        max_pos_embeds = 400
+        max_pos_embeds = 512
         vocab_size = self.tokenizer.vocab_size
 
         for idx, instance in enumerate(self.data):
@@ -38,6 +38,8 @@ class LLMDataset(Dataset):
             
             labelled_spans = instance.get("labelled_answer_spans", {})
             labelled_summaries = instance.get("labelled_summaries", {})
+            
+            print(self.perspectives.items())
 
             # For each perspective, create a separate example
             for perspective, perspective_info in self.perspectives.items():
