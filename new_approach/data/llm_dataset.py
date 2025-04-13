@@ -31,7 +31,7 @@ class LLMDataset(Dataset):
     def preprocess(self):
         """Process raw data into model-ready examples."""
         examples = []
-        max_pos_embeds = 384 # Pegasus default
+        max_pos_embeds = 512 # Pegasus default
         vocab_size = self.tokenizer.vocab_size  # For clamping
 
         for idx, instance in enumerate(self.data):
