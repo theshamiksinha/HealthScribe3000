@@ -92,7 +92,7 @@ def train_llm():
         return rouge_scores
     
     # Initialize trainer
-    trainer = Trainer(
+    trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
