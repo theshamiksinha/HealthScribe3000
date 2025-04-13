@@ -28,7 +28,7 @@ class LLMDataset(Dataset):
         
     def preprocess(self):
         examples = []
-        max_pos_embeds = 384
+        max_pos_embeds = 400
         vocab_size = self.tokenizer.vocab_size
 
         for idx, instance in enumerate(self.data):

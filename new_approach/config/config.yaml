@@ -9,9 +9,9 @@ model:
   # LLM settings
   llm:
     base_model: "google/pegasus-xsum"  # Can use any appropriate base model
-    max_length: 384
-    max_input_length: 384 # Adjust based on model's limitations
-    max_output_length: 256  # Adjust based on model's limitations
+    max_length: 400
+    max_input_length: 400 # Adjust based on model's limitations
+    max_output_length: 400  # Adjust based on model's limitations
     batch_size: 8
 
 # Data settings
