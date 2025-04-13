@@ -32,7 +32,11 @@ def evaluate_pegasus_model(model, tokenizer, test_dataset, output_dir="eval_outp
             )
 
             decoded_preds = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-            decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+            labels_cleaned = [
+                [token_id if token_id != -100 else tokenizer.pad_token_id for token_id in label_seq]
+                for label_seq in labels
+            ]
+            decoded_labels = tokenizer.batch_decode(labels_cleaned, skip_special_tokens=True)
 
             predictions.extend(decoded_preds)
             references.extend(decoded_labels)
