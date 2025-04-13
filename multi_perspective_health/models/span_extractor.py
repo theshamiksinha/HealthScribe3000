@@ -61,7 +61,7 @@ class SpanExtractorWithCRF(nn.Module):
     def get_tag_names(self, tag_ids, id2label):
         return [[id2label[tag_id] for tag_id in seq] for seq in tag_ids]
     
-     def predict(self, input_ids, attention_mask):
+    def predict(self, input_ids, attention_mask):
         self.eval()  # Set the model in evaluation mode
         with torch.no_grad():
             outputs = self(input_ids, attention_mask=attention_mask)
