@@ -38,6 +38,11 @@ def train():
         train_data = json.load(f) 
     with open(config['data']['val_path'], 'r') as f:
         val_data = json.load(f)
+        
+    # For faster test runs (adjust/remove for real training)
+    train_data = train_data[:int(len(train_data) * 0.01)]
+    val_data = val_data[:int(len(val_data) * 0.01)]
+
     
     # Create label map if not provided
     if 'label_map' not in config:
