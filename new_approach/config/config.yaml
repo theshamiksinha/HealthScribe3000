@@ -15,7 +15,7 @@ model:
 # Data settings
 data:
   train_path: "data/train.json"
-  val_path: "data/val.json"
+  val_path: "data/valid.json"
   test_path: "data/test.json"
   tokenizer_name: "bert-base-uncased"
   max_seq_length: 512
