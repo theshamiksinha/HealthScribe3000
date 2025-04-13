@@ -8,3 +8,4 @@ tqdm
 PyYAML
 pytorch-crf
 rouge
+rouge_score
