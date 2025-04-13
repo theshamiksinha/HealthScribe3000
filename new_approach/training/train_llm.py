@@ -8,17 +8,17 @@ import json
 import torch
 from tqdm import tqdm
 from transformers import (
-    AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    Trainer,
-    TrainingArguments,
-    DataCollatorForSeq2Seq
+    PegasusTokenizer,
+    PegasusForConditionalGeneration,
+    Seq2SeqTrainer,
+    Seq2SeqTrainingArguments,
+    DataCollatorForSeq2Seq,
 )
+
 from data.data_utils import load_dataset, load_config
 import numpy as np
 from data.llm_dataset import LLMDataset
 from utils.metrics import compute_rouge
-from transformers import PegasusTokenizer, PegasusForConditionalGeneration
 
 def train_llm():
     # Load config
@@ -67,18 +67,22 @@ def train_llm():
     )
     
     # Set up training arguments
-    training_args = TrainingArguments(
-        output_dir=config['training']['llm']['save_dir'],
-        num_train_epochs=config['training']['llm']['num_epochs'],
-        per_device_train_batch_size=config['training']['llm']['batch_size'],
-        per_device_eval_batch_size=config['training']['llm']['batch_size'],
-        gradient_accumulation_steps=config['training']['llm']['gradient_accumulation_steps'],
-        learning_rate=float(config['training']['llm']['learning_rate']),
-        weight_decay=0.01,
-        fp16=torch.cuda.is_available(),
+    training_args = Seq2SeqTrainingArguments(
+        output_dir="./pegasus_outputs",
+        evaluation_strategy="steps",
+        eval_steps=100,
+        save_steps=100,
+        logging_steps=50,
+        save_total_limit=2,
+        per_device_train_batch_size=2,
+        per_device_eval_batch_size=2,
+        num_train_epochs=3,
+        predict_with_generate=True,
+        fp16=True,  # if you're on GPU with mixed precision support
         report_to="none",
-        data_collator = data_collator,
+        load_best_model_at_end=True,
     )
+
     
     # Define compute metrics function
     def compute_metrics(eval_pred):
