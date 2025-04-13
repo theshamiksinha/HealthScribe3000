@@ -40,8 +40,8 @@ def train():
         val_data = json.load(f)
         
     # For faster test runs (adjust/remove for real training)
-    train_data = train_data[:int(len(train_data) * 0.1)]
-    val_data = val_data[:int(len(val_data) * 0.1)]
+    train_data = train_data[:int(len(train_data) * 0.01)]
+    val_data = val_data[:int(len(val_data) * 0.01)]
 
     
     # Create label map if not provided
