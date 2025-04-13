@@ -76,6 +76,7 @@ def train_llm():
         per_device_eval_batch_size=2,
         num_train_epochs=3,
         fp16=True,  # if you're on GPU with mixed precision support
+        report_to="none",
     )
 
     
