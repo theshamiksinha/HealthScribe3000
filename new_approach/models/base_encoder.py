@@ -58,3 +58,11 @@ class BaseEncoder(nn.Module):
             token_embeddings = outputs.last_hidden_state
             input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
             return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+        
+    def save_transformer(self, save_dir):
+        self.model.save_pretrained(save_dir)
+
+    def load_transformer(self, load_dir):
+        # Load model weights into existing `self.model`
+        self.model = AutoModel.from_pretrained(load_dir)
+        self.encoder = self.model  # update self.encoder too

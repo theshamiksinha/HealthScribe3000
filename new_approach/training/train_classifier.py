@@ -11,9 +11,8 @@ from models.perspective_classifier import PerspectiveClassifier
 from data.dataset import PerspectiveClassificationDataset
 from utils.metrics import compute_multilabel_metrics
 from data.data_utils import load_config, save_predictions_to_json
-import yaml
 import json
-from tqdm import tqdm  # ✅ tqdm added
+from tqdm import tqdm  
 from collections import Counter
 # from modules.perspective_pipeline import predict_perspectives
 
@@ -88,6 +87,9 @@ def train_classifier():
         num_labels=len(train_dataset.perspectives),
         pos_weight = pos_weight
     ).to(device)
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)  # Move the model to the correct device
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(config["training"]["classifier"]["learning_rate"]))
 
@@ -119,11 +121,15 @@ def train_classifier():
         
     # Save the trained classifier model
     print("✅ Saving the trained PerspectiveClassifier model...\n")
-    save_dir = config["training"]["classifier"]["save_dir"]  # better to use a classifier-specific key
+    save_dir = config["training"]["classifier"]["save_dir"]
     os.makedirs(save_dir, exist_ok=True)
 
-    model.model.save_pretrained(save_dir)  # this assumes model.model is a Huggingface transformer
+    # Save the encoder (Huggingface model part)
+    model.encoder.save_transformer(save_dir)
     tokenizer.save_pretrained(save_dir)
+
+    # Save the classifier head and other components
+    torch.save(model.state_dict(), os.path.join(save_dir, "classifier_state_dict.pt"))
 
                 
     # test_data = load_dataset(config["data"]["test_path"])

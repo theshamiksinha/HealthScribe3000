@@ -27,7 +27,10 @@ def evaluate_perspective_wise(model, tokenizer, dataset, all_perspectives=None):
         
         input_ids = batch["input_ids"].unsqueeze(0)
         attention_mask = batch["attention_mask"].unsqueeze(0)
+        if "labels" not in batch or batch["labels"] is None:
+            continue  # skip this batch if labels are missing
         label_ids = batch["labels"].unsqueeze(0)
+
         perspective = batch["perspective"]
 
         with torch.no_grad():

@@ -28,9 +28,9 @@ def train_llm():
     
     # Load data
     print("Loading training and validation data...")
-    train_data = load_dataset(config['data']['train_path'])
-    val_data = load_dataset(config['data']['val_path'])
-    test_data = load_dataset(config['data']['test_path'])
+    train_data = load_dataset(file_path=config['data']['train_path'])
+    val_data = load_dataset(file_path=config['data']['val_path'])
+    test_data = load_dataset(file_path=config['data']['test_path'])
     
     # For faster test runs (adjust/remove for real training)
     # train_data = train_data[:int(len(train_data) * 0.01)]

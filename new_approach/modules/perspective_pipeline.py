@@ -8,17 +8,48 @@ from transformers import AutoTokenizer
 from data.data_utils import load_dataset
 from data.dataset import PerspectiveClassificationDataset
 import torch
+ 
 
 def train_or_load_classifier(config):
-    train_classifier()  # train and save model
-    tokenizer = AutoTokenizer.from_pretrained(config["data"]["tokenizer_name"])
-    model = PerspectiveClassifier(
-        model_name=config["model"]["classifier"]["encoder_model"],
-        num_labels=len(config["perspectives"])
-    )
-    model.load_state_dict(torch.load(config["training"]["classifer"]["save_dir"]))
-    model.eval()
+    save_dir = config["training"]["classifier"]["save_dir"]
+ 
+    if not os.path.exists(save_dir):
+        print("Model directory not found. Training the model...")
+        train_classifier()  # Train and save the model
+    else:
+        print("Model directory found. Checking for necessary files...")
+ 
+        encoder_exists = all([
+            os.path.exists(os.path.join(save_dir, "classifier_state_dict.pt")),
+            os.path.exists(os.path.join(save_dir, "config.json")),
+            os.path.exists(os.path.join(save_dir, "tokenizer_config.json")),  # optional but nice
+            any(os.path.exists(os.path.join(save_dir, fname)) for fname in ["pytorch_model.bin", "model.safetensors"])
+        ])
+        classifier_state_dict_exists = os.path.exists(os.path.join(save_dir, "classifier_state_dict.pt"))
+        
+        if encoder_exists and classifier_state_dict_exists:
+            print("Loading existing model...")
+        else:
+            print("Missing necessary files. Training the model...")
+            train_classifier() 
+     
+    model = PerspectiveClassifier(model_name="bert-base-uncased", num_labels=5)
+    model.encoder.load_transformer(save_dir)
+    
+    # Check if the classifier state dict exists and load it
+    classifier_state_dict_path = os.path.join(save_dir, "classifier_state_dict.pt")
+    if os.path.exists(classifier_state_dict_path):
+        print("Loading classifier state dict...")
+        model.load_state_dict(torch.load(classifier_state_dict_path))
+    else:
+        print(f"Warning: {classifier_state_dict_path} not found. Skipping state_dict loading.")
+    
+    # Load the tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(save_dir)
+
     return model, tokenizer
+
+
 
 def predict_perspectives(model, tokenizer, test_data, config):
     dataset = PerspectiveClassificationDataset(

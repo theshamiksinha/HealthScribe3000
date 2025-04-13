@@ -23,7 +23,11 @@ def evaluate_pegasus_model(model, tokenizer, dataset, output_dir="eval_after_tra
     for batch in tqdm(dataset):
         input_ids = batch["input_ids"].unsqueeze(0).to(device)
         attention_mask = batch["attention_mask"].unsqueeze(0).to(device)
+        if "labels" not in batch or batch["labels"] is None:
+            continue  # skip this batch if labels are missing
+
         label_ids = batch["labels"].unsqueeze(0).to(device)
+
 
         with torch.no_grad():
             generated_ids = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=512)

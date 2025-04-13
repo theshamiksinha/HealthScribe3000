@@ -69,7 +69,19 @@ class LLMDataset(Dataset):
                     labels = targets["input_ids"][0].clone()
                     labels[labels == self.tokenizer.pad_token_id] = -100
                 else:
-                    labels = None  # No labels during test
+                    target_output = self._create_target_output(labelled_summaries, perspective)
+                    if target_output.strip():  # Only tokenize if non-empty
+                        targets = self.tokenizer(
+                            target_output,
+                            max_length=min(self.max_length, max_pos_embeds),
+                            padding="max_length",
+                            truncation=True,
+                            return_tensors="pt"
+                        )
+                        labels = targets["input_ids"][0].clone()
+                        labels[labels == self.tokenizer.pad_token_id] = -100
+                    else:
+                        labels = None
 
                 example = {
                     "input_ids": inputs["input_ids"][0],
