@@ -19,6 +19,7 @@ from data.data_utils import load_dataset, load_config
 import numpy as np
 from data.llm_dataset import LLMDataset
 from utils.metrics import compute_rouge
+from inference.evaluate_summariser import evaluate_pegasus_model
 
 def train_llm():
     # Load config
@@ -28,7 +29,8 @@ def train_llm():
     print("Loading training and validation data...")
     train_data = load_dataset(config['data']['train_path'])
     val_data = load_dataset(config['data']['val_path'])
-
+    test_data = load_dataset(config['data']['test_path'])
+    
     # # Initialize tokenizer and model
     # model_name = config['model']['llm']['base_model']
     # tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -44,8 +46,8 @@ def train_llm():
     # For faster test runs (adjust/remove for real training)
     train_data = train_data[:int(len(train_data) * 0.05)]
     val_data = val_data[:int(len(val_data) * 0.05)]
+    test_data = test_data[:int(len(val_data) * 0.05)]
     
-
     tokenizer = PegasusTokenizer.from_pretrained("google/pegasus-xsum")  # or your variant
     model = PegasusForConditionalGeneration.from_pretrained("google/pegasus-xsum")
 
@@ -112,6 +114,11 @@ def train_llm():
     trainer.train()
     
     print("LLM training completed!")
+    
+   
+    test_dataset = LLMDataset(test_data, tokenizer, config, mode="test")
+
+    evaluate_pegasus_model(model, tokenizer, test_dataset, output_dir="eval_after_training")
     
     print("\nGenerating predictions for first 10 validation samples...")
     model.eval()
