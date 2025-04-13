@@ -1,0 +1,68 @@
+# Model and training settings
+model:
+  # Perspective classifier settings
+  classifier:
+    encoder_model: "bert-base-uncased"
+    num_classes: 5
+    dropout: 0.1
+  
+  # LLM settings
+  llm:
+    base_model: "google/pegasus-xsum"  # Can use any appropriate base model
+    max_length: 1024
+    batch_size: 8
+
+# Data settings
+data:
+  train_path: "data/train.json"
+  val_path: "data/val.json"
+  test_path: "data/test.json"
+  tokenizer_name: "bert-base-uncased"
+  max_seq_length: 512
+
+# Training settings
+training:
+  # Classifier training
+  classifier:
+    batch_size: 32
+    num_epochs: 5
+    learning_rate: 2e-5
+    save_dir: "saved_models/classifier"
+  
+  # LLM fine-tuning
+  llm:
+    batch_size: 4
+    num_epochs: 3
+    learning_rate: 5e-5
+    save_dir: "saved_models/llm"
+    gradient_accumulation_steps: 4
+
+# Inference settings
+inference:
+  model_path: "saved_models/llm"
+  batch_size: 8
+  max_length: 256
+  num_beams: 4
+
+# Perspective definitions for prompts
+perspectives:
+  INFORMATION:
+    definition: "Knowledge about diseases, disorders, and health-related facts, providing insights into symptoms and diagnosis."
+    tone: "Informative, Educational."
+    start_phrase: "For information purposes..."
+  CAUSE:
+    definition: "Reasons responsible for the occurrence of a particular medical condition, symptom, or disease."
+    tone: "Explanatory, Causal."
+    start_phrase: "Some of the causes..."
+  SUGGESTION:
+    definition: "Advice or recommendations to assist users in making informed medical decisions, solving problems, or improving health issues."
+    tone: "Advisory, Recommending." 
+    start_phrase: "It is suggested..."
+  QUESTION:
+    definition: "Inquiry made for deeper understanding."
+    tone: "Seeking Understanding."
+    start_phrase: "It is inquired..."
+  EXPERIENCE:
+    definition: "Individual experiences, anecdotes, or firsthand insights related to health, medical treatments, medication usage, and coping strategies."
+    tone: "Personal, Narrative."
+    start_phrase: "In user's experience..."
