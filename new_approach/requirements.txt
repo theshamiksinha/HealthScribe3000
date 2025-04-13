@@ -9,3 +9,6 @@ PyYAML
 pytorch-crf
 rouge
 rouge_score
+evaluate
+bert-score
+nltk
