@@ -66,3 +66,8 @@ perspectives:
     definition: "Individual experiences, anecdotes, or firsthand insights related to health, medical treatments, medication usage, and coping strategies."
     tone: "Personal, Narrative."
     start_phrase: "In user's experience..."
+
+
+misc:
+  seed: 42
+  device: "cuda"
