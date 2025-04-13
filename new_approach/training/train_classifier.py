@@ -88,18 +88,18 @@ def train_classifier():
     val_loader = DataLoader(val_dataset, batch_size=config["training"]["classifier"]["batch_size"], shuffle=False)
 
     model = PerspectiveClassifier(
-        model_name=config["model"]["pretrained_model"],
+        model_name=config["model"]["classifer"]["encoder_model"],
         num_labels=len(train_dataset.perspectives),
         pos_weight = pos_weight
     ).to(device)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=float(config["training"]["learning_rate"]))
+    optimizer = torch.optim.AdamW(model.parameters(), lr=float(config["training"]["classifer"]["learning_rate"]))
 
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
 
     best_val_f1 = 0
 
-    for epoch in range(config["training"]["num_epochs"]):
+    for epoch in range(config["training"]["classifer"]["num_epochs"]):
         model.train()
         total_loss = 0
 
@@ -117,13 +117,13 @@ def train_classifier():
 
         scheduler.step()
 
-        print(f"Epoch {epoch + 1}/{config['training']['num_epochs']} - Loss: {total_loss / len(train_loader):.4f}")
+        print(f"Epoch {epoch + 1}/{config['training']["classifer"]['num_epochs']} - Loss: {total_loss / len(train_loader):.4f}")
 
         val_f1 = evaluate(model, val_loader, device, train_dataset.perspectives)
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             if config["training"].get("save_model", False):
-                torch.save(model.state_dict(), config["training"]["save_path"])
+                torch.save(model.state_dict(), config["training"]["classifer"]["save_dir"])
                 print(f"✅ Best model saved (F1 = {val_f1:.4f})")
 
 def evaluate(model, val_loader, device, perspectives):
