@@ -73,7 +73,9 @@ class LLMDataset(Dataset):
                     "input_ids": inputs["input_ids"][0],
                     "attention_mask": inputs["attention_mask"][0],
                     "labels": labels,
+                    "perspective": perspective  # ✅ This enables perspective-wise evaluation
                 })
+
 
         return examples
 
