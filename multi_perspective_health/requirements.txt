@@ -7,3 +7,4 @@ pandas
 tqdm
 PyYAML
 pytorch-crf
+rouge

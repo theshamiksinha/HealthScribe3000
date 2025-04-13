@@ -113,15 +113,15 @@ def train_llm():
     print("Training LLM...")
     trainer.train()
     
-    # Save the best model
-    print("Saving the best model...")
-    trainer.save_model(os.path.join(config['training']['llm']['save_dir'], 'best_model'))
+    # # Save the best model
+    # print("Saving the best model...")
+    # trainer.save_model(os.path.join(config['training']['llm']['save_dir'], 'best_model'))
     
-    # Save the configuration with the model
-    with open(os.path.join(config['training']['llm']['save_dir'], 'best_model', 'config.yaml'), 'w') as f:
-        yaml.dump(config, f)
+    # # Save the configuration with the model
+    # with open(os.path.join(config['training']['llm']['save_dir'], 'best_model', 'config.yaml'), 'w') as f:
+    #     yaml.dump(config, f)
     
-    print("LLM training completed!")
+    # print("LLM training completed!")
 
 if __name__ == "__main__":
     train_llm()
