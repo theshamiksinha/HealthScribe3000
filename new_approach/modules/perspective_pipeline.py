@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from training.train_classifier import train_classifier, evaluate
+# from training.train_classifier import train_classifier, evaluate
 from models.perspective_classifier import PerspectiveClassifier
 from transformers import AutoTokenizer
 from data.data_utils import load_dataset
