@@ -184,6 +184,25 @@ def train():
         scheduler.step()
 
     print(f"Training completed. Best F1: {best_f1:.4f}")
+def idxs_to_spans(tags, tokens):
+    spans = []
+    span, tag = [], None
+    for t, tok in zip(tags, tokens):
+        if t.startswith("B-"):
+            if span:
+                spans.append((" ".join(span), tag))
+            span = [tok]
+            tag = t[2:]
+        elif t.startswith("I-") and span and t[2:] == tag:
+            span.append(tok)
+        else:
+            if span:
+                spans.append((" ".join(span), tag))
+                span = []
+            tag = None
+    if span:
+        spans.append((" ".join(span), tag))
+    return spans
 
 def evaluate(model, dataloader, id2label, device, max_print=5):
     model.eval()
