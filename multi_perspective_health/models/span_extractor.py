@@ -65,6 +65,10 @@ class SpanExtractorWithCRF(nn.Module):
         self.eval()  # Set the model in evaluation mode
         with torch.no_grad():
             outputs = self(input_ids, attention_mask=attention_mask)
-            logits = outputs[1]  # Assuming logits are at index 1
+            logits = outputs[1] if isinstance(outputs, tuple) else outputs  # Check if the output is a tuple
+            logits = logits[0] if isinstance(logits, tuple) else logits  # Ensure logits is a tensor
+
+            # Apply argmax to get predicted tag indices
             predicted_tag_idxs = torch.argmax(logits, dim=-1).cpu().numpy()
+        
         return predicted_tag_idxs
