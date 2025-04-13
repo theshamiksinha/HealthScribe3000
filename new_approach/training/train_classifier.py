@@ -84,8 +84,8 @@ def train_classifier():
     ######################################## data analysis #################################################
         
 
-    train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=config["training"]["classifier"]["batch_size"], shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=config["training"]["classifier"]["batch_size"], shuffle=False)
 
     model = PerspectiveClassifier(
         model_name=config["model"]["pretrained_model"],
