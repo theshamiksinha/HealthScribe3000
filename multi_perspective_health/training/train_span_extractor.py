@@ -40,8 +40,8 @@ def train():
         val_data = json.load(f)
         
     # For faster test runs (adjust/remove for real training)
-    train_data = train_data[:int(len(train_data) * 0.01)]
-    val_data = val_data[:int(len(val_data) * 0.01)]
+    train_data = train_data[:int(len(train_data) * 0.1)]
+    val_data = val_data[:int(len(val_data) * 0.1)]
 
     
     # Create label map if not provided
@@ -158,6 +158,10 @@ def train():
         print(f"Validation F1: {f1:.4f}")
         print(report)
         
+        print("Evaluating on test set...")
+        evaluate(model, val_loader, label_map_reverse, device=config['misc']['device'])
+
+        
         # Save best model
         # if f1 > best_f1:
         #     best_f1 = f1
@@ -176,10 +180,49 @@ def train():
         #         break
         
         # Update learning rate
+        
         scheduler.step()
 
     print(f"Training completed. Best F1: {best_f1:.4f}")
 
+def evaluate(model, dataloader, id2label, device, max_print=5):
+    model.eval()
+    all_preds, all_labels = [], []
+
+    print("\nSample Predictions:\n" + "="*70)
+
+    with torch.no_grad():
+        for i, batch in enumerate(tqdm(dataloader)):
+            input_ids, attention_mask, labels, metadata = batch
+            input_ids = input_ids.to(device)
+            attention_mask = attention_mask.to(device)
+
+            predicted_tag_idxs = model.predict(input_ids, attention_mask)
+            predicted_tags = [[id2label[idx] for idx in sent] for sent in predicted_tag_idxs]
+            gold_tags = [[id2label[idx] for idx in sent] for sent in labels.tolist()]
+
+            all_preds.extend(predicted_tags)
+            all_labels.extend(gold_tags)
+
+            # Print a few examples
+            if i < max_print:
+                tokens = metadata[0]['tokens']
+                question = metadata[0].get('question', '')
+                pred_spans = idxs_to_spans(predicted_tags[0], tokens)
+                true_spans = idxs_to_spans(gold_tags[0], tokens)
+
+                print(f"Q: {question}")
+                print(f"A: {' '.join(tokens)}")
+                print(f"True Spans:")
+                for s, p in true_spans:
+                    print(f"  - [{p}] {s}")
+                print(f"Predicted Spans:")
+                for s, p in pred_spans:
+                    print(f"  - [{p}] {s}")
+                print("-" * 70)
+                
+    model.train()
+    return
 
 if __name__ == "__main__":
     train()
