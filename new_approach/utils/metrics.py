@@ -2,6 +2,7 @@
 import numpy as np
 from sklearn.metrics import classification_report, f1_score, precision_score, recall_score
 from rouge import Rouge
+from rouge_score import rouge_scorer
 
 def compute_token_f1(predictions, gold_labels, id2label=None):
     """Compute token-level F1 score for BIO tagging"""
@@ -22,29 +23,26 @@ def compute_token_f1(predictions, gold_labels, id2label=None):
     
     return f1
 
+
 def compute_rouge(predictions, references):
-    """Compute ROUGE scores for text generation"""
-    rouge = Rouge()
+    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+    scores = {}
     
-    # Ensure inputs are non-empty
-    valid_pairs = [(p, r) for p, r in zip(predictions, references) 
-                   if len(p.strip()) > 0 and len(r.strip()) > 0]
+    rouge1_f = []
+    rouge2_f = []
+    rougeL_f = []
     
-    if not valid_pairs:
-        return {"rouge1": 0.0, "rouge2": 0.0, "rougeL": 0.0}
+    for pred, ref in zip(predictions, references):
+        score = scorer.score(ref, pred)
+        rouge1_f.append(score['rouge1'].fmeasure)
+        rouge2_f.append(score['rouge2'].fmeasure)
+        rougeL_f.append(score['rougeL'].fmeasure)
     
-    valid_preds, valid_refs = zip(*valid_pairs)
+    scores['rouge1'] = np.mean(rouge1_f)
+    scores['rouge2'] = np.mean(rouge2_f)
+    scores['rougeL'] = np.mean(rougeL_f)
     
-    try:
-        scores = rouge.get_scores(valid_preds, valid_refs, avg=True)
-        return {
-            "rouge1": scores["rouge-1"]["f"],
-            "rouge2": scores["rouge-2"]["f"],
-            "rougeL": scores["rouge-l"]["f"]
-        }
-    except Exception as e:
-        print(f"Error computing ROUGE: {e}")
-        return {"rouge1": 0.0, "rouge2": 0.0, "rougeL": 0.0}
+    return scores
 
 def compute_multilabel_metrics(predictions, labels, class_names):
     """

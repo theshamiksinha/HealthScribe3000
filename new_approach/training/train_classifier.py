@@ -5,6 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from data.data_utils import load_dataset
 from transformers import AutoTokenizer
 from models.perspective_classifier import PerspectiveClassifier
 from data.dataset import PerspectiveClassificationDataset
@@ -27,11 +28,10 @@ def train_classifier():
 
     tokenizer = AutoTokenizer.from_pretrained(config["data"]["tokenizer_name"])
 
-    # Load JSON data
-    with open(config['data']['train_path'], 'r') as f:
-        train_data = json.load(f) 
-    with open(config['data']['val_path'], 'r') as f:
-        val_data = json.load(f) 
+    # Load data
+    print("Loading datasets...")
+    train_data = load_dataset(config['data']['train_path'])
+    val_data = load_dataset(config['data']['val_path'])
 
     # For faster test runs (adjust/remove for real training)
     # train_data = train_data[:int(len(train_data) * 0.1)]

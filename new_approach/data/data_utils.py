@@ -2,6 +2,7 @@
 import json
 import os
 from tqdm import tqdm
+import yaml
 
 def load_dataset(file_path):
     """Load dataset from JSON file"""
@@ -14,6 +15,10 @@ def save_dataset(data, file_path):
     with open(file_path, 'w') as f:
         json.dump(data, f, indent=2)
 
+def load_config(path='config/config.yaml'):
+    with open(path, 'r') as f:
+        return yaml.safe_load(f)
+    
 def prepare_llm_training_data(data, perspective_classifier, config):
     """
     Prepare data for LLM fine-tuning by adding perspective labels.

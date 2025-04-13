@@ -1,20 +1,18 @@
-# data/llm_dataset.py
-import json
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
-import numpy as np
+import random
 
 class LLMDataset(Dataset):
     def __init__(self, data, tokenizer, config, mode="train"):
         """
-        Dataset for LLM fine-tuning with perspective-based prompts
+        Dataset for training LLMs to extract and summarize perspective-specific content
         
         Args:
-            data: List of data instances with questions, answers, and perspective labels
-            tokenizer: Tokenizer for the LLM
+            data: List of data instances
+            tokenizer: HuggingFace tokenizer
             config: Configuration dictionary
-            mode: 'train', 'val', or 'test'
+            mode: "train", "val", or "test"
         """
         self.data = data
         self.tokenizer = tokenizer
@@ -25,38 +23,33 @@ class LLMDataset(Dataset):
         self.examples = self.preprocess()
         
     def preprocess(self):
-        """Convert raw data into prompted examples for LLM fine-tuning"""
+        """Process raw data into model-ready examples"""
         examples = []
         
-        for instance in self.data:
+        for idx, instance in enumerate(self.data):
             question = instance["question"]
+            raw_text = instance["raw_text"]
             answers = instance["answers"]
             
-            # Group answers by perspectives
-            perspective_answers = {p: [] for p in self.perspectives.keys()}
+            # Filter out empty answers or '?'
+            answers = [a for a in answers if a and a.strip() != '?']
             
-            for answer in answers:
-                # Get assigned perspectives (this assumes perspectives are predicted or labeled)
-                perspectives = answer.get("perspectives", [])
-                
-                # Add the answer to each relevant perspective group
-                for perspective in perspectives:
-                    if perspective in self.perspectives:
-                        perspective_answers[perspective].append(answer["text"])
+            # Get labelled spans and summaries
+            labelled_spans = instance.get("labelled_answer_spans", {})
+            labelled_summaries = instance.get("labelled_summaries", {})
             
-            # Create input-output pairs for training
-            input_prompt = self._create_input_prompt(question, perspective_answers)
+            # Map answers to their perspectives
+            answer_perspectives = self._identify_answer_perspectives(raw_text, answers, labelled_spans)
             
-            # Create expected output (for training)
-            # In a real scenario, these would be the reference summaries for each perspective
-            target_output = instance.get("perspective_summaries", self._create_default_output(perspective_answers))
+            # Create input prompt
+            input_prompt = self._create_input_prompt(question, answer_perspectives)
             
-            # Format target as a string
-            target_text = self._format_target_output(target_output)
+            # Create target output
+            target_output = self._create_target_output(labelled_spans, labelled_summaries)
             
-            # Tokenize inputs and targets
+            # Tokenize input and target
             inputs = self.tokenizer(
-                input_prompt, 
+                input_prompt,
                 max_length=self.max_length,
                 padding="max_length",
                 truncation=True,
@@ -64,69 +57,103 @@ class LLMDataset(Dataset):
             )
             
             targets = self.tokenizer(
-                target_text,
+                target_output,
                 max_length=self.max_length,
                 padding="max_length",
                 truncation=True,
                 return_tensors="pt"
             )
             
+            # Create example
             example = {
+                "instance_id": idx,
                 "input_ids": inputs["input_ids"][0],
                 "attention_mask": inputs["attention_mask"][0],
                 "labels": targets["input_ids"][0],
                 "question": question,
-                "perspective_answers": perspective_answers
+                "answers": answers,
+                "perspectives": list(set(p for persp_list in answer_perspectives.values() for p in persp_list))
             }
             
             examples.append(example)
-        
+            
         return examples
-    
-    def _create_input_prompt(self, question, perspective_answers):
-        """Create a detailed prompt for the LLM"""
+        
+    def _identify_answer_perspectives(self, raw_text, answers, labelled_spans):
+        """Identify which perspectives are present in each answer"""
+        answer_perspectives = {}
+        
+        # Extract perspective-related spans for each answer
+        for answer in answers:
+            # Find the position of this answer in the raw text
+            answer_start = raw_text.find(answer)
+            
+            # Skip if answer not found in raw text
+            if answer_start == -1:
+                continue
+                
+            answer_end = answer_start + len(answer)
+            present_perspectives = set()
+            
+            # Check which perspectives' spans overlap with this answer
+            for perspective, spans in labelled_spans.items():
+                for span in spans:
+                    span_start, span_end = span["label_spans"]
+                    
+                    # Check if this span overlaps with the answer
+                    if (answer_start <= span_start < answer_end or 
+                        answer_start < span_end <= answer_end or
+                        span_start <= answer_start < span_end):
+                        present_perspectives.add(perspective)
+            
+            # Store perspectives for this answer
+            if present_perspectives:
+                answer_perspectives[answer] = list(present_perspectives)
+        
+        return answer_perspectives
+        
+    def _create_input_prompt(self, question, answer_perspectives):
+        """Create the input prompt for the model"""
         prompt = f"Question: {question}\n\n"
+        prompt += "TASK: Extract relevant text spans for each perspective and generate perspective summaries.\n\n"
         
-        # Add perspective definitions
-        prompt += "TASK: For each of the following perspectives, identify relevant spans in the provided answers and summarize them:\n\n"
+        # Add definitions for all perspectives
+        prompt += "Perspectives:\n"
+        for p_name, p_info in self.perspectives.items():
+            prompt += f"- {p_name}: {p_info['definition']} (Tone: {p_info['tone']})\n"
         
-        for perspective, definition in self.perspectives.items():
-            prompt += f"- {perspective}: {definition['definition']}\n"
-            prompt += f"  Tone: {definition['tone']}\n"
-        
+        # Add answers with their identified perspectives
         prompt += "\nAnswers with their perspectives:\n"
-        
-        # Add perspective-specific answers
-        for perspective, answers in perspective_answers.items():
-            if answers:
-                prompt += f"\n{perspective} ANSWERS:\n"
-                for i, answer in enumerate(answers):
-                    prompt += f"[{i+1}] {answer}\n"
+        for i, (answer, perspectives) in enumerate(answer_perspectives.items()):
+            if perspectives:
+                persp_str = ", ".join(perspectives)
+                prompt += f"\nAnswer {i+1}: {answer}\n" 
+                prompt += f"Perspectives: {persp_str}\n"
         
         return prompt
+        
+    def _create_target_output(self, labelled_spans, labelled_summaries):
+        """Create the target output for the model"""
+        # Part 1: Extracted spans organized by perspective
+        output = "EXTRACTED SPANS:\n"
+        for p_name, spans in labelled_spans.items():
+            if spans:
+                output += f"{p_name}:\n"
+                for span in spans:
+                    output += f"- {span['txt']}\n"
+        
+        # Part 2: Perspective summaries
+        output += "\nPERSPECTIVE SUMMARIES:\n"
+        for p_name in self.perspectives:
+            summary_key = f"{p_name}_SUMMARY"
+            if summary_key in labelled_summaries:
+                p_info = self.perspectives.get(p_name, {})
+                start_phrase = p_info.get('start_phrase', f"{p_name}:")
+                
+                output += f"{summary_key}: {start_phrase} {labelled_summaries[summary_key]}\n"
+        
+        return output
     
-    def _create_default_output(self, perspective_answers):
-        """Create a default output structure when reference summaries aren't available"""
-        default_output = {}
-        
-        for perspective, answers in perspective_answers.items():
-            if answers:
-                default_output[perspective] = "Summarize the " + perspective.lower() + " aspects from the answers."
-        
-        return default_output
-    
-    def _format_target_output(self, target_output):
-        """Format the target output as a string"""
-        output_text = "PERSPECTIVE SUMMARIES:\n\n"
-        
-        for perspective, summary in target_output.items():
-            perspective_def = self.perspectives.get(perspective, {})
-            start_phrase = perspective_def.get('start_phrase', f"{perspective}:")
-            
-            output_text += f"{perspective} SUMMARY: {start_phrase} {summary}\n\n"
-        
-        return output_text
-            
     def __len__(self):
         return len(self.examples)
     

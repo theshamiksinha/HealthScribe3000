@@ -1,10 +1,7 @@
-# training/train_llm.py
 import os
-import sys
 import yaml
 import json
 import torch
-from torch.utils.data import DataLoader
 from transformers import (
     AutoModelForSeq2SeqLM,
     AutoTokenizer,
@@ -12,43 +9,20 @@ from transformers import (
     TrainingArguments,
     DataCollatorForSeq2Seq
 )
+from data.data_utils import load_dataset, load_config
 import numpy as np
-from tqdm import tqdm
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from data.llm_dataset import LLMDataset
-from data.data_utils import load_dataset, prepare_llm_training_data
-from models.perspective_classifier import PerspectiveClassifier
 from utils.metrics import compute_rouge
-
-def load_config(path='config/config.yaml'):
-    with open(path, 'r') as f:
-        return yaml.safe_load(f)
 
 def train_llm():
     # Load config
     config = load_config()
     
     # Load data
-    print("Loading datasets...")
     train_data = load_dataset(config['data']['train_path'])
     val_data = load_dataset(config['data']['val_path'])
-    
-    # Load perspective classifier for labeling
-    if any("perspectives" not in answer for instance in train_data for answer in instance["answers"]):
-        print("Loading perspective classifier...")
-        classifier = PerspectiveClassifier.from_pretrained(
-            os.path.join(config['training']['classifier']['save_dir'], 'best_model.pt'),
-            config['model']['classifier']['encoder_model']
-        )
-        
-        # Prepare data with perspective labels
-        print("Preparing data with perspective labels...")
-        train_data = prepare_llm_training_data(train_data, classifier, config)
-        val_data = prepare_llm_training_data(val_data, classifier, config)
-    
+
     # Initialize tokenizer and model
-    print("Initializing model and tokenizer...")
     model_name = config['model']['llm']['base_model']
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
@@ -113,7 +87,7 @@ def train_llm():
     print("Training LLM...")
     trainer.train()
     
-    # # Save the best model
+    # Save the best model
     # print("Saving the best model...")
     # trainer.save_model(os.path.join(config['training']['llm']['save_dir'], 'best_model'))
     
@@ -121,7 +95,7 @@ def train_llm():
     # with open(os.path.join(config['training']['llm']['save_dir'], 'best_model', 'config.yaml'), 'w') as f:
     #     yaml.dump(config, f)
     
-    # print("LLM training completed!")
+    print("LLM training completed!")
 
 if __name__ == "__main__":
     train_llm()
