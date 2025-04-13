@@ -15,6 +15,8 @@ def train_or_load_summariser(config):
     print(f"Loading fine-tuned model from {model_dir}")
     model = PegasusForConditionalGeneration.from_pretrained(model_dir)
     tokenizer = PegasusTokenizer.from_pretrained(model_dir)
+    
+    model.eval()
     return model, tokenizer
 
 def generate_summaries(model, tokenizer, test_data, config):

@@ -109,6 +109,7 @@ def train_llm():
     # Ensure the directory exists
     os.makedirs(config["training"]["llm"]["save_dir"], exist_ok=True)
     trainer.save_model(config["training"]["llm"]["save_dir"])
+    tokenizer.save_pretrained(config["training"]["llm"]["save_dir"])
 
     # ########################################################################################################### #
    
