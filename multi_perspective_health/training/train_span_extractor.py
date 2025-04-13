@@ -158,12 +158,10 @@ def train():
         print(f"Validation F1: {f1:.4f}")
         print(report)
         
-        print("Evaluating on test set...")
-        first_batch = next(iter(val_loader))
-        print(first_batch)
-
-        evaluate(model, val_loader, label_map_reverse, device=config['misc']['device'])
-
+        # Perform detailed evaluation with examples
+        print("\nDetailed Evaluation with Examples:")
+        evaluate(model, val_loader, tokenizer, label_map_reverse, device)
+        
         
         # Save best model
         # if f1 > best_f1:
@@ -188,69 +186,146 @@ def train():
 
     print(f"Training completed. Best F1: {best_f1:.4f}")
     
-
-def idxs_to_spans(tags, tokens):
-    spans = []
-    span, tag = [], None
-    for t, tok in zip(tags, tokens):
-        if t.startswith("B-"):
-            if span:
-                spans.append((" ".join(span), tag))
-            span = [tok]
-            tag = t[2:]
-        elif t.startswith("I-") and span and t[2:] == tag:
-            span.append(tok)
-        else:
-            if span:
-                spans.append((" ".join(span), tag))
-                span = []
-            tag = None
-    if span:
-        spans.append((" ".join(span), tag))
-    return spans
-
-def evaluate(model, dataloader, id2label, device, num_samples=5):
+ 
+def evaluate(model, val_loader, tokenizer, id2label, device, num_examples=5):
+    """
+    Evaluate the model and print examples of predictions vs. ground truth.
+    
+    Args:
+        model: The trained SpanExtractorWithCRF model
+        val_loader: DataLoader for validation data
+        tokenizer: Tokenizer used for encoding
+        id2label: Mapping from tag IDs to tag names
+        device: Device to run inference on
+        num_examples: Number of examples to print
+    
+    Returns:
+        Dictionary with validation metrics
+    """
     model.eval()
-    all_preds, all_labels = [], []
-
+    all_preds = []
+    all_labels = []
+    
+    # For printing examples
+    examples_to_print = []
+    
     with torch.no_grad():
-        for batch in tqdm(dataloader):
+        for batch_idx, batch in enumerate(val_loader):
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
+            token_type_ids = batch['token_type_ids'].to(device)
             labels = batch['labels'].to(device)
+            
+            # Get model predictions
+            preds = model(input_ids, attention_mask, token_type_ids)
+            
+            # Collect predictions and labels
+            for i, pred_seq in enumerate(preds):
+                # Get the actual sequence length (non-padding)
+                seq_len = attention_mask[i].sum().item()
+                
+                # Get the predicted and gold labels
+                pred_tags = [id2label[tag_id] for tag_id in pred_seq[:seq_len]]
+                true_tags = [id2label[tag_id] for tag_id in labels[i][:seq_len].cpu().tolist()]
+                
+                all_preds.append(pred_seq[:seq_len])
+                all_labels.append(labels[i][:seq_len].cpu().tolist())
+                
+                # Store examples for later printing
+                if len(examples_to_print) < num_examples and batch_idx % (len(val_loader) // num_examples) == 0:
+                    # Decode the input tokens
+                    tokens = tokenizer.convert_ids_to_tokens(input_ids[i][:seq_len].cpu().tolist())
+                    
+                    # Find where the answer part starts (based on token_type_ids)
+                    answer_start = 0
+                    for j in range(seq_len):
+                        if token_type_ids[i][j] == 1:
+                            answer_start = j
+                            break
+                            
+                    # Only keep tokens from the answer
+                    answer_tokens = tokens[answer_start:]
+                    answer_pred_tags = pred_tags[answer_start:]
+                    answer_true_tags = true_tags[answer_start:]
+                    
+                    examples_to_print.append({
+                        'tokens': answer_tokens,
+                        'pred_tags': answer_pred_tags,
+                        'true_tags': answer_true_tags
+                    })
+    
+    # Calculate F1 score
+    f1, report = compute_token_f1(all_preds, all_labels, id2label)
+    
+    # Print examples
+    print("\n===== PREDICTION EXAMPLES =====")
+    for idx, example in enumerate(examples_to_print):
+        print(f"\nExample {idx+1}:")
+        print("Original Text with Gold Spans:")
+        _print_tagged_text(example['tokens'], example['true_tags'])
+        
+        print("\nPredicted Spans:")
+        _print_tagged_text(example['tokens'], example['pred_tags'])
+        print("-" * 80)
+    
+    return {
+        'f1': f1,
+        'report': report
+    }
 
-            # Use the forward pass to get predictions
-            outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
-            logits = outputs[1]  # Assuming logits are at index 1
-
-            # Convert logits to predicted tag indices
-            predicted_tag_idxs = torch.argmax(logits, dim=-1).cpu().numpy()
-            predicted_tags = [[id2label[idx] for idx in sent] for sent in predicted_tag_idxs]
-            gold_tags = [[id2label[idx] for idx in sent] for sent in labels.cpu().numpy()]
-
-            all_preds.extend(predicted_tags)
-            all_labels.extend(gold_tags)
-
-            # Print some sample predictions and true spans
-            for i in range(min(num_samples, len(batch['input_ids']))):
-                tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-                input_text = tokenizer.decode(batch['input_ids'][i], skip_special_tokens=True)
-                pred_span = ' '.join(predicted_tags[i])
-                true_span = ' '.join(gold_tags[i])
-                print(f"Sample {i+1}:")
-                print(f"Input: {input_text}")
-                print(f"Predicted Spans: {pred_span}")
-                print(f"True Spans: {true_span}")
-                print("-" * 50)
-
-    # Compute metrics (precision, recall, F1)
-    precision, recall, f1 = compute_metrics(all_preds, all_labels)
-    print(f"\nEvaluation: Precision={precision:.4f} | Recall={recall:.4f} | F1={f1:.4f}\n")
-
-    model.train()
-    return precision, recall, f1
-
-
+def _print_tagged_text(tokens, tags):
+    """Helper function to print text with colored spans for different perspective types."""
+    # Terminal colors
+    colors = {
+        'B-INFORMATION': '\033[94m',  # Blue
+        'I-INFORMATION': '\033[94m',
+        'B-SUGGESTION': '\033[92m',   # Green
+        'I-SUGGESTION': '\033[92m',
+        'B-CAUSE': '\033[91m',        # Red
+        'I-CAUSE': '\033[91m',
+        'B-EXPERIENCE': '\033[93m',   # Yellow
+        'I-EXPERIENCE': '\033[93m',
+        'B-QUESTION': '\033[95m',     # Magenta
+        'I-QUESTION': '\033[95m',
+        'O': '\033[0m',               # Reset
+        'END': '\033[0m'              # Reset
+    }
+    
+    # Format special tokens to be more readable
+    formatted_tokens = []
+    for token in tokens:
+        if token.startswith('##'):
+            formatted_tokens.append(token[2:])
+        elif token in ['[CLS]', '[SEP]', '[PAD]']:
+            continue
+        else:
+            formatted_tokens.append(' ' + token)
+    
+    # Print the text with colors
+    current_perspective = None
+    output_text = ""
+    
+    for token, tag in zip(formatted_tokens, tags):
+        if tag.startswith('B-'):
+            # Start of a new perspective span
+            if current_perspective:
+                output_text += colors['END']
+            current_perspective = tag[2:]
+            output_text += colors[tag] + token
+        elif tag.startswith('I-'):
+            # Continuation of a perspective span
+            output_text += token
+        else:  # 'O' tag
+            if current_perspective:
+                output_text += colors['END']
+                current_perspective = None
+            output_text += token
+    
+    # End any open color codes
+    if current_perspective:
+        output_text += colors['END']
+    
+    print(output_text)
 
 
 if __name__ == "__main__":
