@@ -151,4 +151,36 @@ class LLMDataset(Dataset):
         return len(self.examples)
     
     def __getitem__(self, idx):
-        return self.examples[idx]
+        item = self.data[idx]
+
+        input_text = item["input"]
+        target_text = item["target"]
+
+        inputs = self.tokenizer(
+            input_text,
+            max_length=self.max_input_length,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        targets = self.tokenizer(
+            target_text,
+            max_length=self.max_target_length,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        input_ids = inputs.input_ids.squeeze()
+        attention_mask = inputs.attention_mask.squeeze()
+
+        labels = targets.input_ids.squeeze()
+        labels[labels == self.tokenizer.pad_token_id] = -100  # ⬅️ Important!
+
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "labels": labels,
+        }
+
