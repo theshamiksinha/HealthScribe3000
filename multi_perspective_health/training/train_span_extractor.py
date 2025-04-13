@@ -17,7 +17,7 @@ from models.span_extractor import SpanExtractorWithCRF
 from data.span_dataset import SpanDataset
 from utils.metrics import compute_token_f1
 from tqdm import tqdm
-from sklearn.metrics import classification_report
+
 
 def load_config(path='config/config.yaml'):
     with open(path, 'r') as f:
@@ -180,44 +180,6 @@ def train():
 
     print(f"Training completed. Best F1: {best_f1:.4f}")
 
-# Modified token F1 function for span extraction
-def compute_token_f1(predictions, gold_labels, id2label):
-    """
-    Compute token-level F1 score for BIO tagging.
-    
-    Args:
-        predictions: List of predicted tag sequences
-        gold_labels: List of gold tag sequences
-        id2label: Mapping from tag IDs to tag names
-        
-    Returns:
-        F1 score and a detailed classification report
-    """
-    # Flatten predictions and labels, but only include non-padding tokens
-    y_true = []
-    y_pred = []
-    
-    for pred_seq, true_seq in zip(predictions, gold_labels):
-        # Convert IDs to tag names if needed
-        if isinstance(pred_seq[0], int):
-            pred_seq = [id2label[p] for p in pred_seq]
-        if isinstance(true_seq[0], int):
-            true_seq = [id2label[t] for t in true_seq]
-        
-        y_true.extend(true_seq)
-        y_pred.extend(pred_seq)
-    
-    # Generate classification report
-    report = classification_report(y_true, y_pred)
-    
-    # Convert to string labels if needed and filter out padding tokens
-    # Calculate F1 scores for each tag class and average
-    from sklearn.metrics import f1_score
-    
-    # Calculate micro F1 score (across all tokens and classes)
-    f1_micro = f1_score(y_true, y_pred, average='micro', zero_division=0)
-    
-    return f1_micro, report
 
 if __name__ == "__main__":
     train()

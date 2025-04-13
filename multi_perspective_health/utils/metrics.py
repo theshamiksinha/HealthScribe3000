@@ -3,31 +3,44 @@
 from seqeval.metrics import precision_score, recall_score, f1_score, classification_report
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from sklearn.metrics import f1_score, precision_score, recall_score
-
-def compute_token_f1(preds, labels, label_map):
+from sklearn.metrics import classification_report
+# Modified token F1 function for span extraction
+def compute_token_f1(predictions, gold_labels, id2label):
     """
-    Compute token-level F1 score between predicted and ground truth label sequences.
+    Compute token-level F1 score for BIO tagging.
     
-    Arguments:
-        preds: List of predicted label ids (e.g., [[0, 1, 2], [1, 0, 2], ...])
-        labels: List of true label ids (e.g., [[0, 1, 2], [1, 0, 2], ...])
-        label_map: A dictionary mapping label ids to tag strings 
-                   (e.g., {0: 'O', 1: 'B-INFORMATION', 2: 'I-INFORMATION'})
-
+    Args:
+        predictions: List of predicted tag sequences
+        gold_labels: List of gold tag sequences
+        id2label: Mapping from tag IDs to tag names
+        
     Returns:
-        f1: The computed F1 score for token-level predictions using seqeval.
+        F1 score and a detailed classification report
     """
-    # Convert label ids to tag strings using the label_map
-    preds_str = [[label_map[i] for i in seq] for seq in preds]
-    labels_str = [[label_map[i] for i in seq] for seq in labels]
-
-    # Now filter out padding tokens (usually 'O' or a special tag like '<PAD>')
-    # If padding is included in your label map, you should remove it by checking a pad_token_label_id (like -100)
-    # Assuming 0 corresponds to "O", we usually do NOT remove it, since "O" is a valid tag
-
-    # Compute F1 score using seqeval
-    f1 = f1_score(labels_str, preds_str)
-    return f1
+    # Flatten predictions and labels, but only include non-padding tokens
+    y_true = []
+    y_pred = []
+    
+    for pred_seq, true_seq in zip(predictions, gold_labels):
+        # Convert IDs to tag names if needed
+        if isinstance(pred_seq[0], int):
+            pred_seq = [id2label[p] for p in pred_seq]
+        if isinstance(true_seq[0], int):
+            true_seq = [id2label[t] for t in true_seq]
+        
+        y_true.extend(true_seq)
+        y_pred.extend(pred_seq)
+    
+    # Generate classification report
+    report = classification_report(y_true, y_pred)
+    
+    # Convert to string labels if needed and filter out padding tokens
+    # Calculate F1 scores for each tag class and average
+    
+    # Calculate micro F1 score (across all tokens and classes)
+    f1_micro = f1_score(y_true, y_pred, average='micro', zero_division=0)
+    
+    return f1_micro, report
 
 
 def compute_multilabel_metrics(predictions, labels, class_names):
