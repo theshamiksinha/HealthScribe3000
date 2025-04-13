@@ -131,12 +131,17 @@ def train_llm():
 
         decoded_input = tokenizer.decode(input_ids[0], skip_special_tokens=True)
         decoded_output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-        decoded_reference = tokenizer.decode(sample["labels"], skip_special_tokens=True)
+        label_ids = sample["labels"].clone()
+        label_ids[label_ids == -100] = tokenizer.pad_token_id
+        decoded_reference = tokenizer.decode(label_ids, skip_special_tokens=True)
+
 
         print(f"\n--- Sample {i+1} ---")
         print(f"INPUT:\n{decoded_input}\n")
         print(f"PREDICTED:\n{decoded_output}\n")
         print(f"REFERENCE:\n{decoded_reference}\n")
+        
+        print("\n")
 
 if __name__ == "__main__":
     train_llm()
