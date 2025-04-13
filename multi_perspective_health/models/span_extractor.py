@@ -60,24 +60,4 @@ class SpanExtractorWithCRF(nn.Module):
     # Helper method to get tag names from predicted tag IDs
     def get_tag_names(self, tag_ids, id2label):
         return [[id2label[tag_id] for tag_id in seq] for seq in tag_ids]
-    
-    def predict(self, input_ids, attention_mask):
-        self.eval()  # Set the model in evaluation mode
-        with torch.no_grad():
-            outputs = self(input_ids, attention_mask=attention_mask)
-            
-            # Check if the model output contains a tuple (e.g., (loss, logits))
-            logits = outputs[1] if isinstance(outputs, tuple) else outputs
-            
-            # Convert logits to a tensor if it's still a list
-            if isinstance(logits, list):
-                logits = torch.tensor(logits)
-
-            # Ensure logits is a tensor
-            if not isinstance(logits, torch.Tensor):
-                raise TypeError(f"Expected logits to be a torch.Tensor, but got {type(logits)}")
-
-            # Apply argmax to get predicted tag indices
-            predicted_tag_idxs = torch.argmax(logits, dim=-1).cpu().numpy()
-
-        return predicted_tag_idxs
+ 

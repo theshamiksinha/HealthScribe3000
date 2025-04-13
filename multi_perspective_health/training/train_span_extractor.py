@@ -219,16 +219,21 @@ def evaluate(model, dataloader, id2label, device, num_samples=5):
             attention_mask = batch['attention_mask'].to(device)
             labels = batch['labels'].to(device)
 
-            # Get predicted tags from the model
-            predicted_tag_idxs = model.predict(input_ids, attention_mask)
+            # Use the forward pass to get predictions
+            outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
+            logits = outputs[1]  # Assuming logits are at index 1
+
+            # Convert logits to predicted tag indices
+            predicted_tag_idxs = torch.argmax(logits, dim=-1).cpu().numpy()
             predicted_tags = [[id2label[idx] for idx in sent] for sent in predicted_tag_idxs]
-            gold_tags = [[id2label[idx] for idx in sent] for sent in labels.tolist()]
+            gold_tags = [[id2label[idx] for idx in sent] for sent in labels.cpu().numpy()]
 
             all_preds.extend(predicted_tags)
             all_labels.extend(gold_tags)
 
             # Print some sample predictions and true spans
             for i in range(min(num_samples, len(batch['input_ids']))):
+                tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
                 input_text = tokenizer.decode(batch['input_ids'][i], skip_special_tokens=True)
                 pred_span = ' '.join(predicted_tags[i])
                 true_span = ' '.join(gold_tags[i])
@@ -237,8 +242,14 @@ def evaluate(model, dataloader, id2label, device, num_samples=5):
                 print(f"Predicted Spans: {pred_span}")
                 print(f"True Spans: {true_span}")
                 print("-" * 50)
- 
-    model.train() 
+
+    # Compute metrics (precision, recall, F1)
+    precision, recall, f1 = compute_metrics(all_preds, all_labels)
+    print(f"\nEvaluation: Precision={precision:.4f} | Recall={recall:.4f} | F1={f1:.4f}\n")
+
+    model.train()
+    return precision, recall, f1
+
 
 
 
