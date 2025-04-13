@@ -1,22 +1,20 @@
-import torch
 from collections import defaultdict
-from tqdm import tqdm
 from rouge_score import rouge_scorer
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from nltk.translate.meteor_score import meteor_score
 from nltk.tokenize import word_tokenize
 from bert_score import score as bertscore
-import pandas as pd
+from tabulate import tabulate
 
-def evaluate_perspective_wise(model, tokenizer, dataset):
-    model.eval()
+def evaluate_perspective_wise(model, tokenizer, dataset, all_perspectives=None):
+    print("Generating perspective-wise predictions...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.eval()
     model.to(device)
 
-    perspective_predictions = defaultdict(list)
-    perspective_references = defaultdict(list)
+    # Store predictions and refs per perspective
+    results = defaultdict(lambda: {"preds": [], "refs": []})
 
-    print("\nGenerating perspective-wise predictions...")
     for batch in tqdm(dataset):
         input_ids = batch["input_ids"].unsqueeze(0).to(device)
         attention_mask = batch["attention_mask"].unsqueeze(0).to(device)
@@ -26,59 +24,65 @@ def evaluate_perspective_wise(model, tokenizer, dataset):
         with torch.no_grad():
             generated_ids = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=512)
 
-        pred = tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
-        label = tokenizer.decode(label_ids[0][label_ids[0] != -100], skip_special_tokens=True).strip()
+        decoded_pred = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+        decoded_label = tokenizer.decode(label_ids[0][label_ids[0] != -100], skip_special_tokens=True)
 
-        perspective_predictions[perspective].append(pred)
-        perspective_references[perspective].append(label)
+        results[perspective]["preds"].append(decoded_pred.strip())
+        results[perspective]["refs"].append(decoded_label.strip())
 
-    def compute_metrics(predictions, references):
-        scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
-        r1_f, r1_r, r2_f, r2_r, rl_f, rl_r = [], [], [], [], [], []
+    all_perspectives = all_perspectives or sorted(results.keys())
+    table = []
 
-        for pred, ref in zip(predictions, references):
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
+    smoothie = SmoothingFunction().method4
+
+    for perspective in all_perspectives:
+        preds = results[perspective]["preds"]
+        refs = results[perspective]["refs"]
+
+        if not preds:
+            table.append([perspective] + ["N/A"] * 9)
+            continue
+
+        rouge1_r, rouge1_f = [], []
+        rouge2_r, rouge2_f = [], []
+        rougeL_r, rougeL_f = [], []
+        bleu_scores = []
+        meteor_scores = []
+
+        for pred, ref in zip(preds, refs):
             scores = scorer.score(ref, pred)
-            r1_f.append(scores["rouge1"].fmeasure)
-            r1_r.append(scores["rouge1"].recall)
-            r2_f.append(scores["rouge2"].fmeasure)
-            r2_r.append(scores["rouge2"].recall)
-            rl_f.append(scores["rougeL"].fmeasure)
-            rl_r.append(scores["rougeL"].recall)
+            rouge1_r.append(scores["rouge1"].recall)
+            rouge1_f.append(scores["rouge1"].fmeasure)
+            rouge2_r.append(scores["rouge2"].recall)
+            rouge2_f.append(scores["rouge2"].fmeasure)
+            rougeL_r.append(scores["rougeL"].recall)
+            rougeL_f.append(scores["rougeL"].fmeasure)
 
-        smoothie = SmoothingFunction().method4
-        bleu = [sentence_bleu([word_tokenize(ref)], word_tokenize(pred), smoothing_function=smoothie)
-                for pred, ref in zip(predictions, references)]
+            bleu_scores.append(sentence_bleu([word_tokenize(ref)], word_tokenize(pred), smoothing_function=smoothie))
+            meteor_scores.append(meteor_score([word_tokenize(ref)], word_tokenize(pred)))
 
-        meteor = [meteor_score([word_tokenize(ref)], word_tokenize(pred))
-                  for pred, ref in zip(predictions, references)]
+        P, R, F1 = bertscore(preds, refs, lang="en", verbose=False)
+        bert_f1 = F1.mean().item()
 
-        P, R, F1 = bertscore(predictions, references, lang="en", verbose=False)
+        table.append([
+            perspective,
+            sum(rouge1_r)/len(rouge1_r), sum(rouge1_f)/len(rouge1_f),
+            sum(rouge2_r)/len(rouge2_r), sum(rouge2_f)/len(rouge2_f),
+            sum(rougeL_r)/len(rougeL_r), sum(rougeL_f)/len(rougeL_f),
+            sum(bleu_scores)/len(bleu_scores),
+            sum(meteor_scores)/len(meteor_scores),
+            bert_f1
+        ])
 
-        return {
-            "ROUGE-1 Recall": sum(r1_r) / len(r1_r),
-            "ROUGE-1 F1":     sum(r1_f) / len(r1_f),
-            "ROUGE-2 Recall": sum(r2_r) / len(r2_r),
-            "ROUGE-2 F1":     sum(r2_f) / len(r2_f),
-            "ROUGE-L Recall": sum(rl_r) / len(rl_r),
-            "ROUGE-L F1":     sum(rl_f) / len(rl_f),
-            "BLEU":           sum(bleu) / len(bleu),
-            "METEOR":         sum(meteor) / len(meteor),
-            "BERTScore F1":   F1.mean().item()
-        }
-
-    # Compute and display perspective-wise scores
-    print("\n==== Perspective-wise Evaluation Results ====")
-    results = []
-
-    for perspective in perspective_predictions:
-        preds = perspective_predictions[perspective]
-        refs = perspective_references[perspective]
-        scores = compute_metrics(preds, refs)
-        row = {"Perspective": perspective}
-        row.update(scores)
-        results.append(row)
-
-    df = pd.DataFrame(results)
-    print(df.to_markdown(index=False))
-
-    return df
+    print("\n" + tabulate(
+        table,
+        headers=[
+            "Perspective", "ROUGE-1 Recall", "ROUGE-1 F1",
+            "ROUGE-2 Recall", "ROUGE-2 F1",
+            "ROUGE-L Recall", "ROUGE-L F1",
+            "BLEU", "METEOR", "BERTScore F1"
+        ],
+        floatfmt=".6f",
+        tablefmt="github"
+    ))

@@ -120,7 +120,7 @@ def train_llm():
     test_dataset = LLMDataset(test_data, tokenizer, config, mode="test")
 
     evaluate_pegasus_model(model, tokenizer, test_dataset, output_dir="eval_after_training")
-    evaluate_perspective_wise(model, tokenizer, test_dataset)
+    evaluate_perspective_wise(model, tokenizer, test_dataset, all_perspectives=list(config["perspectives"].keys()))
     
     print("\nGenerating predictions for first 10 validation samples...")
     model.eval()
