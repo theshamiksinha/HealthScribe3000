@@ -1,6 +1,6 @@
 # utils/metrics.py
 import numpy as np
-from sklearn.metrics import classification_report, f1_score
+from sklearn.metrics import classification_report, f1_score, precision_score, recall_score
 from rouge import Rouge
 
 def compute_token_f1(predictions, gold_labels, id2label=None):
@@ -46,6 +46,39 @@ def compute_rouge(predictions, references):
         print(f"Error computing ROUGE: {e}")
         return {"rouge1": 0.0, "rouge2": 0.0, "rougeL": 0.0}
 
+def compute_multilabel_metrics(predictions, labels, class_names):
+    """
+    Compute metrics for multi-label classification.
+    
+    Args:
+        predictions: Binary predictions (B, C)
+        labels: Ground truth labels (B, C)
+        class_names: List of class names
+        
+    Returns:
+        Dictionary of metrics
+    """
+    # Convert tensors to numpy arrays
+    preds_np = predictions.numpy()
+    labels_np = labels.numpy()
+    
+    # Calculate micro and macro metrics
+    micro_f1 = f1_score(labels_np, preds_np, average='micro')
+    macro_f1 = f1_score(labels_np, preds_np, average='macro')
+    micro_precision = precision_score(labels_np, preds_np, average='micro', zero_division=0)
+    micro_recall = recall_score(labels_np, preds_np, average='micro', zero_division=0)
+    
+    # Calculate per-class metrics
+    per_class_f1 = f1_score(labels_np, preds_np, average=None, zero_division=0)
+    
+    return {
+        'micro_f1': micro_f1,
+        'macro_f1': macro_f1,
+        'micro_precision': micro_precision,
+        'micro_recall': micro_recall,
+        'per_class_f1': per_class_f1
+    }
+ 
 def compute_classification_metrics(y_true, y_pred, labels=None):
     """Compute classification metrics for multi-label classification"""
     if isinstance(y_true[0], list) and isinstance(y_pred[0], list):
