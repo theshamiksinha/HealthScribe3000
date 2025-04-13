@@ -60,7 +60,7 @@ def train_llm():
         per_device_train_batch_size=config['training']['llm']['batch_size'],
         per_device_eval_batch_size=config['training']['llm']['batch_size'],
         gradient_accumulation_steps=config['training']['llm']['gradient_accumulation_steps'],
-        learning_rate=config['training']['llm']['learning_rate'],
+        learning_rate=float(config['training']['llm']['learning_rate']),
         weight_decay=0.01,
         # save_strategy="epoch",
         # evaluation_strategy="epoch",
