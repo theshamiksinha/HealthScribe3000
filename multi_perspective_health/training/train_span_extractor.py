@@ -209,18 +209,17 @@ def idxs_to_spans(tags, tokens):
         spans.append((" ".join(span), tag))
     return spans
 
-def evaluate(model, dataloader, id2label, device, max_print=5):
+def evaluate(model, dataloader, id2label, device, num_samples=5):
     model.eval()
     all_preds, all_labels = [], []
 
-    print("\nSample Predictions:\n" + "="*70)
-
     with torch.no_grad():
-        for i, batch in enumerate(tqdm(dataloader)):
+        for batch in tqdm(dataloader):
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels'] 
-            
+            labels = batch['labels'].to(device)
+
+            # Get predicted tags from the model
             predicted_tag_idxs = model.predict(input_ids, attention_mask)
             predicted_tags = [[id2label[idx] for idx in sent] for sent in predicted_tag_idxs]
             gold_tags = [[id2label[idx] for idx in sent] for sent in labels.tolist()]
@@ -228,23 +227,19 @@ def evaluate(model, dataloader, id2label, device, max_print=5):
             all_preds.extend(predicted_tags)
             all_labels.extend(gold_tags)
 
-            if i < max_print:
-                tokens = metadata[0]['tokens']
-                question = metadata[0].get('question', '')
-                pred_spans = idxs_to_spans(predicted_tags[0], tokens)
-                true_spans = idxs_to_spans(gold_tags[0], tokens)
-
-                print(f"Q: {question}")
-                print(f"A: {' '.join(tokens)}")
-                print(f"True Spans:")
-                for s, p in true_spans:
-                    print(f"  - [{p}] {s}")
-                print(f"Predicted Spans:")
-                for s, p in pred_spans:
-                    print(f"  - [{p}] {s}")
-                print("-" * 70)
+            # Print some sample predictions and true spans
+            for i in range(min(num_samples, len(batch['input_ids']))):
+                input_text = tokenizer.decode(batch['input_ids'][i], skip_special_tokens=True)
+                pred_span = ' '.join(predicted_tags[i])
+                true_span = ' '.join(gold_tags[i])
+                print(f"Sample {i+1}:")
+                print(f"Input: {input_text}")
+                print(f"Predicted Spans: {pred_span}")
+                print(f"True Spans: {true_span}")
+                print("-" * 50)
  
     model.train() 
+
 
 
 if __name__ == "__main__":
