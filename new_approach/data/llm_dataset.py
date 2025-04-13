@@ -10,7 +10,7 @@ import random
 class LLMDataset(Dataset):
     def __init__(self, data, tokenizer, config, mode="train"):
         """
-        Dataset for training LLMs to extract and summarize perspective-specific content
+        Dataset for training LLMs to extract and summarize perspective-specific content.
         
         Args:
             data: List of data instances
@@ -23,11 +23,13 @@ class LLMDataset(Dataset):
         self.config = config
         self.mode = mode
         self.max_length = config['model']['llm']['max_length']
+        # In this design, we assume the config's "perspectives" field is a dictionary 
+        # with keys like "INFORMATION", "CAUSE", etc., mapping to their definitions, tones, etc.
         self.perspectives = config['perspectives']
         self.examples = self.preprocess()
         
     def preprocess(self):
-        """Process raw data into model-ready examples"""
+        """Process raw data into model-ready examples."""
         examples = []
         max_pos_embeds = 1024  # Pegasus default
         vocab_size = self.tokenizer.vocab_size  # For clamping
@@ -44,16 +46,16 @@ class LLMDataset(Dataset):
             labelled_spans = instance.get("labelled_answer_spans", {})
             labelled_summaries = instance.get("labelled_summaries", {})
             
-            # Map answers to their perspectives
+            # Map each answer to its identified perspectives
             answer_perspectives = self._identify_answer_perspectives(raw_text, answers, labelled_spans)
             
-            # Create input prompt
+            # Create the input prompt using question and answers with detected perspectives
             input_prompt = self._create_input_prompt(question, answer_perspectives)
             
-            # Create target output
+            # Create target output using extracted spans and summaries
             target_output = self._create_target_output(labelled_spans, labelled_summaries)
-        
-            # Tokenize inputs with appropriate truncation
+            
+            # Tokenize inputs with truncation and padding
             inputs = self.tokenizer(
                 input_prompt,
                 max_length=min(self.max_length, max_pos_embeds),
@@ -70,11 +72,11 @@ class LLMDataset(Dataset):
                 return_tensors="pt"
             )
 
-            # Clamp token IDs to avoid out-of-vocab errors
+            # Clamp token IDs to ensure they don't exceed vocab size
             inputs["input_ids"] = torch.clamp(inputs["input_ids"], max=vocab_size - 1)
             targets["input_ids"] = torch.clamp(targets["input_ids"], max=vocab_size - 1)
 
-            # Prepare labels
+            # Prepare labels; set pad tokens to -100 to ignore them in loss calculation
             labels = targets["input_ids"][0].clone()
             labels[labels == self.tokenizer.pad_token_id] = -100
 
@@ -87,7 +89,7 @@ class LLMDataset(Dataset):
         return examples
         
     def _identify_answer_perspectives(self, raw_text, answers, labelled_spans):
-        """Identify which perspectives are present in each answer"""
+        """Identify which perspectives are present in each answer."""
         answer_perspectives = {}
         
         for answer in answers:
@@ -111,7 +113,7 @@ class LLMDataset(Dataset):
         return answer_perspectives
         
     def _create_input_prompt(self, question, answer_perspectives):
-        """Create the input prompt for the model"""
+        """Create the input prompt for the model."""
         prompt = f"Question: {question}\n\n"
         prompt += "TASK: Extract relevant text spans for each perspective and generate perspective summaries.\n\n"
         
@@ -125,11 +127,12 @@ class LLMDataset(Dataset):
                 continue
             perspective_list = ", ".join(perspectives)
             prompt += f"\nAnswer: {answer}\nPerspectives: {perspective_list}\n"
-
+        
         return prompt
         
     def _create_target_output(self, labelled_spans, labelled_summaries):
-        """Create the target output for the model"""
+        """Create the target output for the model."""
+        # Part 1: Extracted spans organized by perspective
         output = "EXTRACTED SPANS:\n"
         for p_name, spans in labelled_spans.items():
             if spans:
@@ -137,6 +140,7 @@ class LLMDataset(Dataset):
                 for span in spans:
                     output += f"- {span['txt']}\n"
         
+        # Part 2: Perspective summaries
         output += "\nPERSPECTIVE SUMMARIES:\n"
         for p_name in self.perspectives:
             summary_key = f"{p_name}_SUMMARY"
@@ -151,36 +155,5 @@ class LLMDataset(Dataset):
         return len(self.examples)
     
     def __getitem__(self, idx):
-        item = self.data[idx]
-
-        input_text = item["input"]
-        target_text = item["target"]
-
-        inputs = self.tokenizer(
-            input_text,
-            max_length=self.max_input_length,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
-
-        targets = self.tokenizer(
-            target_text,
-            max_length=self.max_target_length,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
-
-        input_ids = inputs.input_ids.squeeze()
-        attention_mask = inputs.attention_mask.squeeze()
-
-        labels = targets.input_ids.squeeze()
-        labels[labels == self.tokenizer.pad_token_id] = -100  # ⬅️ Important!
-
-        return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "labels": labels,
-        }
-
+        # Return the preprocessed example directly
+        return self.examples[idx]
