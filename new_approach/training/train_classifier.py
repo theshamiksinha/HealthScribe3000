@@ -10,16 +10,12 @@ from transformers import AutoTokenizer
 from models.perspective_classifier import PerspectiveClassifier
 from data.dataset import PerspectiveClassificationDataset
 from utils.metrics import compute_multilabel_metrics
+from data.data_utils import load_config, save_predictions_to_json
 import yaml
 import json
 from tqdm import tqdm  # ✅ tqdm added
 from collections import Counter
-import torch
-from collections import Counter
-    
-def load_config(path='config/config.yaml'):
-    with open(path, 'r') as f:
-        return yaml.safe_load(f)
+from modules.perspective_pipeline import predict_perspectives
 
 def train_classifier():
     config = load_config()
@@ -125,6 +121,10 @@ def train_classifier():
             if config["training"].get("save_model", False):
                 torch.save(model.state_dict(), config["training"]["classifer"]["save_dir"])
                 print(f"✅ Best model saved (F1 = {val_f1:.4f})")
+                
+    test_data = load_dataset(config["data"]["test_path"])
+    predicted_test_data = predict_perspectives(model, tokenizer, test_data, config)  
+    save_predictions_to_json(predicted_test_data)
 
 def evaluate(model, val_loader, device, perspectives):
     model.eval()
