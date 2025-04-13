@@ -10,7 +10,7 @@ import random
 class LLMDataset(Dataset):
     def __init__(self, data, tokenizer, config, mode="train"):
         """
-        Dataset for training LLMs to extract and summarize perspective-specific content.
+        Dataset for training LLMs to summarize answers based on a specific perspective.
         
         Args:
             data: List of data instances
@@ -23,8 +23,6 @@ class LLMDataset(Dataset):
         self.config = config
         self.mode = mode
         self.max_length = config['model']['llm']['max_length']
-        # In this design, we assume the config's "perspectives" field is a dictionary 
-        # with keys like "INFORMATION", "CAUSE", etc., mapping to their definitions, tones, etc.
         self.perspectives = config['perspectives']
         self.examples = self.preprocess()
         
@@ -40,107 +38,79 @@ class LLMDataset(Dataset):
             
             labelled_spans = instance.get("labelled_answer_spans", {})
             labelled_summaries = instance.get("labelled_summaries", {})
-            
-            answer_perspectives = self._identify_answer_perspectives(raw_text, answers, labelled_spans)
-            if not answer_perspectives:
-                continue  # Skip samples with no perspective alignment
 
-            input_prompt = self._create_input_prompt(question, answer_perspectives)
-            target_output = self._create_target_output(labelled_spans, labelled_summaries)
-            if not target_output.strip():
-                continue  # Skip samples with no extractable target
+            # For each perspective, create a separate example
+            for perspective, perspective_info in self.perspectives.items():
+                relevant_spans = self._get_relevant_spans_for_perspective(perspective, labelled_spans, answers)
+                
+                if not relevant_spans:
+                    continue  # Skip if no spans were found for this perspective
 
-            inputs = self.tokenizer(
-                input_prompt,
-                max_length=min(self.max_length, max_pos_embeds),
-                padding="max_length",
-                truncation=True,
-                return_tensors="pt"
-            )
+                input_prompt = self._create_input_prompt(question, perspective, perspective_info, relevant_spans)
+                target_output = self._create_target_output(relevant_spans, perspective)
 
-            targets = self.tokenizer(
-                target_output,
-                max_length=min(self.max_length, max_pos_embeds),
-                padding="max_length",
-                truncation=True,
-                return_tensors="pt"
-            )
+                # Tokenizing input and target
+                inputs = self.tokenizer(
+                    input_prompt,
+                    max_length=min(self.max_length, max_pos_embeds),
+                    padding="max_length",
+                    truncation=True,
+                    return_tensors="pt"
+                )
 
-            labels = targets["input_ids"][0].clone()
-            labels[labels == self.tokenizer.pad_token_id] = -100
+                targets = self.tokenizer(
+                    target_output,
+                    max_length=min(self.max_length, max_pos_embeds),
+                    padding="max_length",
+                    truncation=True,
+                    return_tensors="pt"
+                )
 
-            examples.append({
-                "input_ids": inputs["input_ids"][0],
-                "attention_mask": inputs["attention_mask"][0],
-                "labels": labels,
-            })
+                labels = targets["input_ids"][0].clone()
+                labels[labels == self.tokenizer.pad_token_id] = -100
+
+                examples.append({
+                    "input_ids": inputs["input_ids"][0],
+                    "attention_mask": inputs["attention_mask"][0],
+                    "labels": labels,
+                })
 
         return examples
 
-        
-    def _identify_answer_perspectives(self, raw_text, answers, labelled_spans):
-        """Identify which perspectives are present in each answer."""
-        answer_perspectives = {}
-        
+    def _get_relevant_spans_for_perspective(self, perspective, labelled_spans, answers):
+        """Retrieve the spans from answers that are relevant to a given perspective."""
+        relevant_spans = []
+
         for answer in answers:
-            answer_start = raw_text.find(answer)
-            if answer_start == -1:
-                continue
-            answer_end = answer_start + len(answer)
-            present_perspectives = set()
-            
-            for perspective, spans in labelled_spans.items():
-                for span in spans:
-                    span_start, span_end = span["label_spans"]
-                    if (answer_start <= span_start < answer_end or 
-                        answer_start < span_end <= answer_end or
-                        span_start <= answer_start < span_end):
-                        present_perspectives.add(perspective)
-            
-            if present_perspectives:
-                answer_perspectives[answer] = list(present_perspectives)
-        
-        return answer_perspectives
-        
-    def _create_input_prompt(self, question, answer_perspectives):
+            if perspective in labelled_spans:
+                for span in labelled_spans[perspective]:
+                    if span["txt"] in answer:  # Match the span with the answer text
+                        relevant_spans.append(span["txt"])
+
+        return relevant_spans
+
+    def _create_input_prompt(self, question, perspective, perspective_info, relevant_spans):
         """Create the input prompt for the model."""
         prompt = f"Question: {question}\n\n"
-        prompt += "TASK: Extract relevant text spans for each perspective and generate perspective summaries.\n\n"
+        prompt += f"Perspective: {perspective}\n"
+        prompt += f"Definition: {perspective_info['definition']}\n"
+        prompt += f"TONE: {perspective_info['tone']}\n\n"
         
-        prompt += "Perspectives:\n"
-        for p_name, p_info in self.perspectives.items():
-            prompt += f"- {p_name}: {p_info['definition']} (Tone: {p_info['tone']})\n"
+        prompt += "Summarize the following answers from the perspective of the question:\n"
         
-        prompt += "\nAnswers and their perspectives:\n"
-        for answer, perspectives in answer_perspectives.items():
-            if not perspectives:
-                continue
-            perspective_list = ", ".join(perspectives)
-            prompt += f"\nAnswer: {answer}\nPerspectives: {perspective_list}\n"
+        prompt += "Answers:\n"
+        for span in relevant_spans:
+            prompt += f"- {span}\n"
         
         return prompt
         
-    def _create_target_output(self, labelled_spans, labelled_summaries):
-        """Create the target output for the model."""
-        # Part 1: Extracted spans organized by perspective
-        output = "EXTRACTED SPANS:\n"
-        for p_name, spans in labelled_spans.items():
-            if spans:
-                output += f"{p_name}:\n"
-                for span in spans:
-                    output += f"- {span['txt']}\n"
+    def _create_target_output(self, relevant_spans, perspective):
+        """Create the target output for the model: summarize the spans."""
+        # Here, you will likely want to concatenate the spans and summarize them.
+        summary = " ".join(relevant_spans)  # For simplicity, we'll just join them.
         
-        # Part 2: Perspective summaries
-        output += "\nPERSPECTIVE SUMMARIES:\n"
-        for p_name in self.perspectives:
-            summary_key = f"{p_name}_SUMMARY"
-            if summary_key in labelled_summaries:
-                p_info = self.perspectives.get(p_name, {})
-                start_phrase = p_info.get('start_phrase', f"{p_name}:")
-                output += f"{summary_key}: {start_phrase} {labelled_summaries[summary_key]}\n"
-        
-        return output
-    
+        return f"{perspective}_SUMMARY: {summary}"
+
     def __len__(self):
         return len(self.examples)
     
