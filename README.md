@@ -23,7 +23,7 @@ This project provides a pipeline that:
 
 ## 🌐 System Architecture
 
-![Architecture Diagram](https://github.com/theshamiksinha/HealthScribe3000/raw/main/architecture.jpeg)
+![Architecture Diagram](architecture.jpeg)
 
 ### Phase 1 — **Perspective Classification**
 - Encodes QA pairs using a BERT-based encoder
@@ -38,17 +38,22 @@ This project provides a pipeline that:
 ## 🗂️ Repository Structure
 
 ```
-HealthScribe3000/
-├── config/           # YAML-based experiment config
-├── data/             # Preprocessed train/val/test data + dataset loaders
-├── inference/        # Scripts to evaluate models post-training
-├── models/           # BaseEncoder, Pegasus wrapper, classifier head
-├── modules/          # Pipeline abstractions for training/inference
-├── training/         # Training scripts for classifier and summarizer
-├── utils/            # Metrics, plotting, etc.
-├── main.py           # Entrypoint script
-├── requirements.txt
-└── README.md
+HEALTHSCRIBE3000/
+└── multiperspect_health/
+    ├── A. Project Proposal & Baseline/
+    ├── config/
+    ├── data/
+    ├── inference/
+    ├── models/
+    ├── modules/
+    ├── saved_models/
+    ├── training/
+    ├── utils/
+    ├── main.py
+    ├── requirements.txt
+    ├── .gitignore
+    ├── architecture.jpeg
+    └── README.md
 ```
 
 ## 🧪 Dataset
@@ -70,19 +75,35 @@ cd HealthScribe3000
 pip install -r requirements.txt
 ```
 
-### 2. Train the Perspective Classifier
+### 2. Run the Complete Pipeline
+
+The entire pipeline can be executed with a single command:
+
+```bash
+python main.py
+```
+
+This will:
+1. Train or load the perspective classifier
+2. Predict perspectives on the test dataset
+3. Train or load the summarization model
+4. Generate perspective-aware summaries
+
+Alternatively, you can run individual components:
+
+#### Train the Perspective Classifier
 
 ```bash
 python training/train_classifier.py --config config/config.yaml
 ```
 
-### 3. Fine-tune the Summarizer (Pegasus)
+#### Fine-tune the Summarizer (Pegasus)
 
 ```bash
 python training/train_llm.py --config config/config.yaml
 ```
 
-### 4. Evaluate on Test Set
+#### Evaluate on Test Set
 
 ```bash
 python inference/evaluate_summariser.py --config config/config.yaml
@@ -141,6 +162,8 @@ utils/visualization.py
 ## 🧑‍💻 Contributors
 
 - Shamik Sinha – [@theshamiksinha](https://github.com/theshamiksinha)
+- Vansh – [@vansh22559](https://github.com/vansh22559)
+- Shrutya – [@shrutya22487](https://github.com/shrutya22487)
 
 ## 📜 License
 
