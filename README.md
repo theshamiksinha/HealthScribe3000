@@ -15,7 +15,7 @@ In healthcare, different answers to the same question can reflect various **pers
 - 🎯 **Suggestion** — advice or instructions
 - ⚠️ **Cause** — reasons or explanations
 - ✅ **Query** — affirming a question
-- ❌ **Experience** — sharing own experience
+- 👤 **Experience** — sharing own experience
 
 This project provides a pipeline that:
 1. Identifies such perspectives in QA pairs using BERT-based classification.
