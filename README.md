@@ -1,4 +1,4 @@
-# 🩺HealthScribe3000: Perspective-Aware Summarization in Healthcare QA
+# HealthScribe3000: Perspective-Aware Summarization in Healthcare QA
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Made with ♥️](https://img.shields.io/badge/Made%20with-♥️-red)](https://github.com/theshamiksinha)
@@ -14,8 +14,8 @@ In healthcare, different answers to the same question can reflect various **pers
 - 💡 **Information** — factual statements
 - 🎯 **Suggestion** — advice or instructions
 - ⚠️ **Cause** — reasons or explanations
-- ✅ **Confirmation** — affirming a question
-- ❌ **Rejection** — negating or denying something
+- ✅ **Query** — affirming a question
+- ❌ **Experience** — sharing own experience
 
 This project provides a pipeline that:
 1. Identifies such perspectives in QA pairs using BERT-based classification.
@@ -23,7 +23,7 @@ This project provides a pipeline that:
 
 ## 🌐 System Architecture
 
-![Architecture Diagram](https://github.com/theshamiksinha/HealthScribe3000/raw/main/assets/architecture.png)
+![Architecture Diagram](https://github.com/theshamiksinha/HealthScribe3000/raw/main/architecture.jpeg)
 
 ### Phase 1 — **Perspective Classification**
 - Encodes QA pairs using a BERT-based encoder
