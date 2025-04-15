@@ -137,20 +137,17 @@ Includes:
 ## 📎 Example Prompt
 
 ```
+Summarize the responses to the health question below. 
+
+Focus on highlighting insights from the SUGGESTION perspective. Use a Advisory, Recommending. tone. 
+
+Be clear and concise. Perspective Definition: Advice or recommendations to assist users in making informed medical decisions, solving problems, or improving health issues.
+
 Question: What is the treatment for gestational diabetes?
 Answer: Treatment involves healthy eating and regular physical activity...
-Perspective: SUGGESTION
-
-Summarize the answer based on the above perspective.
-```
-
-## 🖼️ Visualizations
-
-Perspective distribution and performance plots are located under:
 
 ```
-utils/visualization.py
-```
+
 
 ## 🔮 Future Work
 
@@ -162,8 +159,8 @@ utils/visualization.py
 ## 🧑‍💻 Contributors
 
 - Shamik Sinha – [@theshamiksinha](https://github.com/theshamiksinha)
-- Vansh – [@vansh22559](https://github.com/vansh22559)
-- Shrutya – [@shrutya22487](https://github.com/shrutya22487)
+- Vansh Yadav – [@vansh22559](https://github.com/vansh22559)
+- Shrutya Chawla – [@shrutya22487](https://github.com/shrutya22487)
 
 ## 📜 License
 
