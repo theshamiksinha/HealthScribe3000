@@ -1,5 +1,3 @@
-# main.py
-
 from modules.perspective_pipeline import train_or_load_classifier, predict_perspectives
 from modules.llm_pipeline import train_or_load_summariser, generate_summaries
 from data.data_utils import load_dataset, load_config, save_predictions_to_json
