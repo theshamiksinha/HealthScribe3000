@@ -1,14 +1,14 @@
-import sys
 import os
+import sys
+from typing import Any, Dict, List
+
+from torch.utils.data import Dataset
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import torch
-from torch.utils.data import Dataset
-from transformers import AutoTokenizer
-import random
 
 class LLMDataset(Dataset):
-    def __init__(self, data, tokenizer, config, mode="train"):
+    def __init__(self, data, tokenizer, config: Dict[str, Any], mode: str = "train"):
         self.data = data
         self.tokenizer = tokenizer
         self.config = config
@@ -17,7 +17,7 @@ class LLMDataset(Dataset):
         self.perspectives = config['perspectives']
         self.examples = self.preprocess()
 
-    def preprocess(self):
+    def preprocess(self) -> List[Dict[str, Any]]:
         examples = []
         max_pos_embeds = 456
 
@@ -95,7 +95,7 @@ class LLMDataset(Dataset):
 
         return examples
 
-    def _get_relevant_spans_for_perspective(self, perspective, labelled_spans, answers):
+    def _get_relevant_spans_for_perspective(self, perspective, labelled_spans, answers) -> List[Any]:
         relevant_spans = []
         for answer in answers:
             if perspective in labelled_spans:
@@ -104,26 +104,35 @@ class LLMDataset(Dataset):
                         relevant_spans.append(span["txt"])
         return relevant_spans
 
-    def _create_input_prompt(self, question, perspective, perspective_info, relevant_spans):
-        prompt = f"Summarize the responses to the health question below.\n"
-        prompt += f"Focus on highlighting insights from the {perspective} perspective.\n"
-        prompt += f"Use a {perspective_info['tone']} tone. Be clear and concise.\n\n"
-        prompt += f"Perspective Definition: {perspective_info['definition']}\n\n"
-        prompt += f"Question: {question}\n\n"
-        prompt += f"Answers:\n"
+    def _create_input_prompt(self, question: str, perspective: str, perspective_info: Dict[str, str],
+                             relevant_spans: List[str]) -> str:
+        prompt = f"""Summarize the responses to the health question below.
+        Focus on highlighting insights from the {perspective} perspective.
+        Use a {perspective_info['tone']} tone. Be clear and concise.
+
+        Perspective Definition: {perspective_info['definition']}
+
+        Start with: {perspective_info['start_phrase']}
+
+        Question: {question}
+
+        Answers:
+        """
+
         for span in relevant_spans:
             prompt += f"- {span}\n"
+
         return prompt
 
-    def _create_target_output(self, labelled_summaries, perspective):
+    def _create_target_output(self, labelled_summaries: Dict, perspective: str) -> str:
         summary_key = f"{perspective}_SUMMARY"
         if summary_key in labelled_summaries:
             return f"{summary_key}: {labelled_summaries[summary_key]}"
         else:
             return ""
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.examples)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
         return self.examples[idx]

@@ -8,10 +8,10 @@ model:
   
   # LLM settings
   llm:
-    base_model: "google/pegasus-xsum"  # Can use any appropriate base model
+    base_model: "google/pegasus-xsum"
     max_length: 456
-    max_input_length: 456 # Adjust based on model's limitations
-    max_output_length: 456  # Adjust based on model's limitations
+    max_input_length: 456
+    max_output_length: 456
     batch_size: 8
 
 # Data settings
@@ -29,19 +29,19 @@ training:
     batch_size: 32
     num_epochs: 5
     learning_rate: 2e-5
-    save_dir: "saved_models/classifier"
-  
+    save_dir: "../model_checkpoints/classifier"
+
   # LLM fine-tuning
   llm:
     batch_size: 4
-    num_epochs: 3
+    num_epochs: 5
     learning_rate: 5e-5
-    save_dir: "saved_models/llm"
+    save_dir: "../model_checkpoints/llm"
     gradient_accumulation_steps: 4
 
 # Inference settings
 inference:
-  model_path: "saved_models/llm"
+  model_path: "../model_checkpoints/llm"
   batch_size: 8
   max_length: 256
   num_beams: 4
@@ -61,7 +61,7 @@ perspectives:
     tone: "Advisory, Recommending." 
     start_phrase: "It is suggested..."
   QUESTION:
-    definition: "Inquiry made for deeper understanding."
+    definition: "Inquiry made in answers for deeper understanding, don't include any information, just the inquiries made in the answers summarized"
     tone: "Seeking Understanding."
     start_phrase: "It is inquired..."
   EXPERIENCE:

@@ -1,18 +1,19 @@
 import os
+
+import nltk
 import torch
-from tqdm import tqdm
-from transformers import pipeline
-from rouge_score import rouge_scorer
+from bert_score import score as bertscore
+from nltk.tokenize import word_tokenize
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from nltk.translate.meteor_score import meteor_score
-from nltk.tokenize import word_tokenize
-from bert_score import score as bertscore
+from rouge_score import rouge_scorer
 from tabulate import tabulate
-import nltk
+from tqdm import tqdm
+
 nltk.download("punkt")
 
 
-def evaluate_pegasus_model(model, tokenizer, dataset, output_dir="eval_after_training"):
+def evaluate_pegasus_model(model, tokenizer, dataset, output_dir="eval_after_training") -> None:
     model.eval()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -27,7 +28,6 @@ def evaluate_pegasus_model(model, tokenizer, dataset, output_dir="eval_after_tra
             continue  # skip this batch if labels are missing
 
         label_ids = batch["labels"].unsqueeze(0).to(device)
-
 
         with torch.no_grad():
             generated_ids = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=512)
@@ -90,4 +90,3 @@ def evaluate_pegasus_model(model, tokenizer, dataset, output_dir="eval_after_tra
         f.write(f"\n\nBLEU:       {avg_bleu:.4f}\n")
         f.write(f"METEOR:     {avg_meteor:.4f}\n")
         f.write(f"BERTScore F1: {avg_bertscore_f1:.4f}\n")
-    

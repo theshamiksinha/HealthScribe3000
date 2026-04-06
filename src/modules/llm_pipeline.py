@@ -1,10 +1,12 @@
+import os
+
+import torch
+from data.llm_dataset import LLMDataset
+from inference.eval_perspective_wise import evaluate_perspective_wise
+from inference.evaluate_summariser import evaluate_pegasus_model
 from training.train_llm import train_llm
 from transformers import PegasusTokenizer, PegasusForConditionalGeneration
-from data.llm_dataset import LLMDataset
-import torch
-import os
-from inference.evaluate_summariser import evaluate_pegasus_model
-from inference.eval_perspective_wise import evaluate_perspective_wise
+
 
 def train_or_load_summariser(config):
     model_dir = config["training"]["llm"]["save_dir"]
@@ -17,25 +19,27 @@ def train_or_load_summariser(config):
     print(f"Loading fine-tuned model from {model_dir}")
     model = PegasusForConditionalGeneration.from_pretrained(model_dir)
     tokenizer = PegasusTokenizer.from_pretrained(model_dir)
-    
+
     model.eval()
     return model, tokenizer
 
-def generate_summaries(model, tokenizer, test_data, config):
+
+def generate_summaries(model, tokenizer, test_data, config) -> None:
     test_dataset = LLMDataset(test_data, tokenizer, config, mode="test")
-    
-    evaluate_pegasus_model(model, tokenizer, test_dataset, output_dir="eval_after_training")
-    evaluate_perspective_wise(model, tokenizer, test_dataset, all_perspectives=list(config["perspectives"].keys()))
+
+    # evaluate_pegasus_model(model, tokenizer, test_dataset, output_dir="eval_after_training")
+    # evaluate_perspective_wise(model, tokenizer, test_dataset, all_perspectives=list(config["perspectives"].keys()))
 
     print("\nGenerating summaries on test set...")
     model.eval()
     device = next(model.parameters()).device  # Get model device
 
-    for i in range(10):
+    for i in range(len(test_dataset)):
         sample = test_dataset[i]
         input_ids = sample["input_ids"].unsqueeze(0).to(device)
         attention_mask = sample["attention_mask"].unsqueeze(0).to(device)
 
+        perspective = sample["perspective"]
         with torch.no_grad():
             output_ids = model.generate(
                 input_ids=input_ids,
@@ -48,6 +52,8 @@ def generate_summaries(model, tokenizer, test_data, config):
         input_text = tokenizer.decode(input_ids[0], skip_special_tokens=True)
         output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
+        output_text = f"{perspective}_SUMMARY: " + output_text.split(":", 1)[-1].strip()
+
         # Only decode reference summary if labels are available
         if "labels" in sample:
             labels = sample["labels"].to(device)
@@ -58,7 +64,5 @@ def generate_summaries(model, tokenizer, test_data, config):
         else:
             ref_text = "[No reference summary available]"
 
-        print(f"\n📝 INPUT:\n{input_text}\n")
-        print(f"🔮 PREDICTED SUMMARY:\n{output_text}\n")
-        print(f"✅ REFERENCE SUMMARY:\n{ref_text}\n")
-
+        print(f"\nINPUT:\n{input_text}\n")
+        print(f"PREDICTED SUMMARY:\n{output_text}\n")

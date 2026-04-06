@@ -1,52 +1,54 @@
-
-import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import sys
+from typing import Any, Dict
 
+import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
-import torch
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 
 class PerspectiveClassificationDataset(Dataset):
-    def __init__(self, data, tokenizer_name="bert-base-uncased", max_length=512):
+    def __init__(self, data, tokenizer_name: str = "bert-base-uncased", max_length: int = 512):
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
         self.max_length = max_length
         self.perspectives = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
         self.perspective_to_idx = {p: i for i, p in enumerate(self.perspectives)}
-        
+
         # Flatten dataset: create one item per (answer) item
         self.examples = []
+
         for item in data:
             question = item["question"]
             answers = item["answers"]
             labelled_spans = item.get("labelled_answer_spans", {})
-            
+
             # For each answer, check which perspectives it contains
             for answer in answers:
                 answer_start = item["raw_text"].find(answer)
                 answer_end = answer_start + len(answer)
-                
+
                 present_perspectives = set()
                 for p, spans in labelled_spans.items():
                     for span in spans:
                         span_start, span_end = span["label_spans"]
                         if answer_start <= span_start < answer_end or answer_start < span_end <= answer_end:
                             present_perspectives.add(p)
-                
+
                 self.examples.append({
-                    # "question": question,
+                    "question": question,
                     "answer": answer,
                     "perspectives": list(present_perspectives)
                 })
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.examples)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
         example = self.examples[idx]
-        text = example["answer"]
-        # text = example["question"] + " " + example["answer"]
-        
+        text = example["question"] + " " + example["answer"]
+
         encoded = self.tokenizer(
             text,
             truncation=True,

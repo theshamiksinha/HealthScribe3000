@@ -100,13 +100,13 @@ python training/train_classifier.py --config config/config.yaml
 #### Fine-tune the Summarizer (Pegasus)
 
 ```bash
-python training/train_llm.py --config config/config.yaml
+python src/training/train_llm.py --config config/config.yaml
 ```
 
 #### Evaluate on Test Set
 
 ```bash
-python inference/evaluate_summariser.py --config config/config.yaml
+python src/inference/evaluate_summariser.py --config config/config.yaml
 ```
 
 ## 🧠 Core Technologies

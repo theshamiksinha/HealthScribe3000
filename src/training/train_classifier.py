@@ -1,9 +1,9 @@
-import sys
 import os
+import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
 from data.data_utils import load_dataset
 from transformers import AutoTokenizer
@@ -11,10 +11,9 @@ from models.perspective_classifier import PerspectiveClassifier
 from data.dataset import PerspectiveClassificationDataset
 from utils.metrics import compute_multilabel_metrics
 from data.data_utils import load_config, save_predictions_to_json
-import json
-from tqdm import tqdm  
+from tqdm import tqdm
 from collections import Counter
-# from modules.perspective_pipeline import predict_perspectives
+
 
 def train_classifier():
     config = load_config()
@@ -42,10 +41,7 @@ def train_classifier():
         tokenizer_name=config["data"]["tokenizer_name"],
         max_length=config["data"]["max_seq_length"]
     )
-    
-    ######################################## data analysis #################################################
-    ######################################## data analysis #################################################
-    ######################################## data analysis #################################################
+
     # 1. Count how often each perspective occurs
     label_counter = Counter()
     for ex in train_dataset.examples:  # or full dataset if needed
@@ -59,11 +55,7 @@ def train_classifier():
 
     # 3. Compute pos_weight: more weight for rare classes
     pos_weight = torch.tensor([neg / (pos + 1e-5) for pos, neg in zip(pos_counts, neg_counts)], dtype=torch.float)
-    
-    """######################################DATA ANALYSIS###############################################"""
-    ######################################## data analysis #################################################
-    ######################################## data analysis #################################################
-    ######################################## data analysis #################################################
+
     label_names = ["INFORMATION", "SUGGESTION", "CAUSE", "EXPERIENCE", "QUESTION"]
     label_counter = torch.zeros(len(label_names))
 
@@ -73,21 +65,18 @@ def train_classifier():
 
     print("Label Distribution:")
     for name, count in zip(label_names, label_counter):
-        print(f"{name}: {int(count)}")\
-    ######################################## data analysis #################################################
-    ######################################## data analysis #################################################
-    ######################################## data analysis #################################################
-        
-
-    train_loader = DataLoader(train_dataset, batch_size=config["training"]["classifier"]["batch_size"], shuffle=True)
+        print(f"{name}: {int(count)}") \
+ \
+                train_loader = DataLoader(train_dataset, batch_size=config["training"]["classifier"]["batch_size"],
+                                          shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=config["training"]["classifier"]["batch_size"], shuffle=False)
 
     model = PerspectiveClassifier(
         model_name=config["model"]["classifier"]["encoder_model"],
         num_labels=len(train_dataset.perspectives),
-        pos_weight = pos_weight
+        pos_weight=pos_weight
     ).to(device)
-    
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)  # Move the model to the correct device
 
@@ -115,10 +104,11 @@ def train_classifier():
 
         scheduler.step()
 
-        print(f"Epoch {epoch + 1}/{config['training']['classifier']['num_epochs']} - Loss: {total_loss / len(train_loader):.4f}")
+        print(
+            f"Epoch {epoch + 1}/{config['training']['classifier']['num_epochs']} - Loss: {total_loss / len(train_loader):.4f}")
 
         # val_f1 = evaluate(model, val_loader, device, train_dataset.perspectives)
-        
+
     # Save the trained classifier model
     print("✅ Saving the trained PerspectiveClassifier model...\n")
     save_dir = config["training"]["classifier"]["save_dir"]
@@ -131,15 +121,15 @@ def train_classifier():
     # Save the classifier head and other components
     torch.save(model.state_dict(), os.path.join(save_dir, "classifier_state_dict.pt"))
 
-                
     # test_data = load_dataset(config["data"]["test_path"])
     # predicted_test_data = predict_perspectives(model, tokenizer, test_data, config)  
     # save_predictions_to_json(predicted_test_data)
 
+
 def evaluate(model, val_loader, device, perspectives):
     model.eval()
     all_preds, all_labels = [], []
-    threshold = 0.5  # Threshold for binary classification
+    threshold = 0.6  # Threshold for binary classification
 
     tokenizer = val_loader.dataset.tokenizer  # grab tokenizer from dataset
     sample_printed = 0
@@ -180,7 +170,7 @@ def evaluate(model, val_loader, device, perspectives):
     print(f"\n📊 Validation Metrics: Micro F1: {metrics['micro_f1']:.4f}, Macro F1: {metrics['macro_f1']:.4f}")
     for i, perspective in enumerate(perspectives):
         print(f"  - {perspective}: F1 = {metrics['per_class_f1'][i]:.4f}")
-    
+
     return metrics["micro_f1"]
 
 

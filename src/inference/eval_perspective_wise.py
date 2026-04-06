@@ -1,15 +1,17 @@
 from collections import defaultdict
+
 import torch
-from torch.utils.data import DataLoader
-from rouge_score import rouge_scorer
+import tqdm
+from bert_score import score as bertscore
+from nltk.tokenize import word_tokenize
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from nltk.translate.meteor_score import meteor_score
-from nltk.tokenize import word_tokenize
-from bert_score import score as bertscore
+from rouge_score import rouge_scorer
 from tabulate import tabulate
-import tqdm
+from torch.utils.data import DataLoader
 
-def evaluate_perspective_wise(model, tokenizer, dataset, all_perspectives=None):
+
+def evaluate_perspective_wise(model, tokenizer, dataset, all_perspectives=None) -> None:
     print("Generating perspective-wise predictions...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
@@ -24,7 +26,7 @@ def evaluate_perspective_wise(model, tokenizer, dataset, all_perspectives=None):
     for batch in tqdm.tqdm(dataloader):
         # Unwrap batch (since batch_size=1)
         batch = {k: v.squeeze(0).to(device) if isinstance(v, torch.Tensor) else v[0] for k, v in batch.items()}
-        
+
         input_ids = batch["input_ids"].unsqueeze(0)
         attention_mask = batch["attention_mask"].unsqueeze(0)
         if "labels" not in batch or batch["labels"] is None:
@@ -83,14 +85,13 @@ def evaluate_perspective_wise(model, tokenizer, dataset, all_perspectives=None):
 
         table.append([
             perspective,
-            truncate(sum(rouge1_r)/len(rouge1_r)), truncate(sum(rouge1_f)/len(rouge1_f)),
-            truncate(sum(rouge2_r)/len(rouge2_r)), truncate(sum(rouge2_f)/len(rouge2_f)),
-            truncate(sum(rougeL_r)/len(rougeL_r)), truncate(sum(rougeL_f)/len(rougeL_f)),
-            truncate(sum(bleu_scores)/len(bleu_scores)),
-            truncate(sum(meteor_scores)/len(meteor_scores)),
+            truncate(sum(rouge1_r) / len(rouge1_r)), truncate(sum(rouge1_f) / len(rouge1_f)),
+            truncate(sum(rouge2_r) / len(rouge2_r)), truncate(sum(rouge2_f) / len(rouge2_f)),
+            truncate(sum(rougeL_r) / len(rougeL_r)), truncate(sum(rougeL_f) / len(rougeL_f)),
+            truncate(sum(bleu_scores) / len(bleu_scores)),
+            truncate(sum(meteor_scores) / len(meteor_scores)),
             truncate(bert_f1)
         ])
-
 
     print("\n" + tabulate(
         table,
