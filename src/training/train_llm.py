@@ -1,8 +1,7 @@
 import os
 import sys
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+import numpy as np
 from tqdm import tqdm
 from transformers import (
     PegasusTokenizer,
@@ -13,11 +12,10 @@ from transformers import (
 )
 
 from data.data_utils import load_dataset, load_config
-import numpy as np
 from data.llm_dataset import LLMDataset
 from utils.metrics import compute_rouge
-from inference.evaluate_summariser import evaluate_pegasus_model
-from inference.eval_perspective_wise import evaluate_perspective_wise
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
 def train_llm():
@@ -106,40 +104,6 @@ def train_llm():
     os.makedirs(config["training"]["llm"]["save_dir"], exist_ok=True)
     trainer.save_model(config["training"]["llm"]["save_dir"])
     tokenizer.save_pretrained(config["training"]["llm"]["save_dir"])
-
-    # test_dataset = LLMDataset(test_data, tokenizer, config, mode="test")
-
-    # evaluate_pegasus_model(model, tokenizer, test_dataset, output_dir="eval_after_training")
-    # evaluate_perspective_wise(model, tokenizer, test_dataset, all_perspectives=list(config["perspectives"].keys()))
-
-    # print("\nGenerating predictions for first 10 validation samples...")
-    # model.eval()
-    # for i in range(10):
-    #     sample = val_dataset[i]
-    #     input_ids = sample["input_ids"].unsqueeze(0).to(model.device)
-    #     attention_mask = sample["attention_mask"].unsqueeze(0).to(model.device)
-
-    #     with torch.no_grad():
-    #         output_ids = model.generate(
-    #             input_ids=input_ids,
-    #             attention_mask=attention_mask,
-    #             max_length=config['model']['llm']['max_length'],  # or 128/256 etc
-    #             num_beams=4,
-    #             early_stopping=True,
-    #         )
-
-    #     decoded_input = tokenizer.decode(input_ids[0], skip_special_tokens=True)
-    #     decoded_output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-    #     label_ids = sample["labels"].clone()
-    #     label_ids[label_ids == -100] = tokenizer.pad_token_id
-    #     decoded_reference = tokenizer.decode(label_ids, skip_special_tokens=True)
-
-    #     print(f"\n--- Sample {i+1} ---")
-    #     print(f"INPUT:\n{decoded_input}\n")
-    #     print(f"PREDICTED:\n{decoded_output}\n")
-    #     print(f"REFERENCE:\n{decoded_reference}\n")
-
-    #     print("\n")
 
 
 if __name__ == "__main__":

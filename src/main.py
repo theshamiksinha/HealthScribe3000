@@ -20,7 +20,7 @@ def main(testing_size: int = None) -> None:
     if testing_size is not None:
         print("Predicted Perspectives:")
         for result in predicted_test_data:
-            print(f"Question: {result['question']} Perspectives: {result["predicted_perspectives"]}")
+            print(f"Question: {result['question']} \n\n Perspectives: {result["predicted_perspectives"]}")
 
     print("\n===== STEP 3: TRAINING/LOADING LLM FOR SUMMARIZATION =====")
     summariser_model, summariser_tokenizer = train_or_load_summariser(config)
