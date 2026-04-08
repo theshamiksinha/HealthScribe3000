@@ -61,8 +61,8 @@ perspectives:
     tone: "Advisory, Recommending." 
     start_phrase: "It is suggested..."
   QUESTION:
-    definition: "Inquiry made in answers for deeper understanding, don't include any information, just the inquiries made in the answers summarized"
-    tone: "Seeking Understanding."
+    definition: "Inquiry made in answers, do not include any experience, suggestions, causes or advice"
+    tone: "Inquiry "
     start_phrase: "It is inquired..."
   EXPERIENCE:
     definition: "Individual experiences, anecdotes, or firsthand insights related to health, medical treatments, medication usage, and coping strategies."

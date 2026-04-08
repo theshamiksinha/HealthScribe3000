@@ -1,17 +1,15 @@
 import os
-import sys
+from typing import Tuple, List, Dict
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from training.train_classifier import train_classifier, evaluate
-from models.perspective_classifier import PerspectiveClassifier
-from transformers import AutoTokenizer
-from data.data_utils import load_dataset
-from data.dataset import PerspectiveClassificationDataset
 import torch
+from transformers import AutoTokenizer
+
+from data.dataset import PerspectiveClassificationDataset
+from models.perspective_classifier import PerspectiveClassifier
+from training.train_classifier import train_classifier
 
 
-def train_or_load_classifier(config):
+def train_or_load_classifier(config: Dict) -> Tuple[PerspectiveClassifier, AutoTokenizer]:
     save_dir = config["training"]["classifier"]["save_dir"]
 
     if not os.path.exists(save_dir):
@@ -44,12 +42,11 @@ def train_or_load_classifier(config):
     else:
         print(f"Warning: {classifier_state_dict_path} not found. Skipping state_dict loading.")
 
-    tokenizer = AutoTokenizer.from_pretrained(save_dir)
-
+    tokenizer = AutoTokenizer.from_pretrained(save_dir)  # type: ignore
     return model, tokenizer
 
 
-def predict_perspectives(model, tokenizer, test_data, config):
+def predict_perspectives(model: PerspectiveClassifier, test_data: List, config: Dict) -> List:
     dataset = PerspectiveClassificationDataset(
         data=test_data,
         tokenizer_name=config["data"]["tokenizer_name"],
@@ -60,20 +57,25 @@ def predict_perspectives(model, tokenizer, test_data, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    all_preds = []
+    all_predictions = []
     model.eval()
+
     with torch.no_grad():
+        threshold = config.get("inference", {}).get("threshold", 0.6)
+
         for batch in loader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             token_type_ids = batch.get("token_type_ids", torch.zeros_like(input_ids)).to(device)
 
             logits = model(input_ids, attention_mask, token_type_ids)
-            preds = (torch.sigmoid(logits) > 0.6).int().cpu().tolist()
-            all_preds.extend(preds)
+            probs = torch.sigmoid(logits)
+
+            binary_predictions = (probs > threshold).int().cpu().tolist()
+            all_predictions.extend(binary_predictions)
 
     perspective_list = list(config["perspectives"].keys())
-    for item, pred in zip(test_data, all_preds):
+    for item, pred in zip(test_data, all_predictions):
         item["predicted_perspectives"] = [perspective_list[i] for i, val in enumerate(pred) if val == 1]
 
     return test_data

@@ -1,14 +1,11 @@
 import json
 import os
-import sys
-from typing import Any
+from typing import Any, Dict, List
 
 import yaml
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-
-def load_dataset(file_path: str) -> Any:
+def load_dataset(file_path: str) -> List[Dict[str, Any]]:
     """Load dataset from JSON file"""
     with open(file_path, 'r') as f:
         return json.load(f)
@@ -21,7 +18,7 @@ def save_dataset(data, file_path: str) -> None:
         json.dump(data, f, indent=2)
 
 
-def load_config(path: str = 'config/config.yaml') -> Any:
+def load_config(path: str = 'config.yaml') -> Any:
     with open(path, 'r') as f:
         return yaml.safe_load(f)
 
